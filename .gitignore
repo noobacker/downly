@@ -3,6 +3,7 @@ node_modules/
 # Runtime data and temporary downloads
 temp/
 data/*.json
+vendor/yt-dlp*
 
 # Local environment and deployment metadata
 .env

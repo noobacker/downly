@@ -1,6 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
+  "installCommand": "DOWNLY_INSTALL_YTDLP=1 npm ci",
   "rewrites": [
     {
       "source": "/(.*)",
@@ -9,6 +10,7 @@
   ],
   "functions": {
     "api/index.js": {
+      "includeFiles": "vendor/yt-dlp",
       "maxDuration": 300
     }
   }

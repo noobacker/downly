@@ -9,12 +9,16 @@ import { fileURLToPath } from 'url';
 const router = express.Router();
 const execFileAsync = promisify(execFile);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const PROJECT_ROOT = path.join(__dirname, '..');
 const STORAGE_ROOT = process.env.VERCEL
   ? path.join(os.tmpdir(), 'downly')
-  : path.join(__dirname, '..');
+  : PROJECT_ROOT;
 const TEMP_DIR = path.join(STORAGE_ROOT, 'temp');
 const DATA_DIR = path.join(STORAGE_ROOT, 'data');
 const STATS_PATH = path.join(DATA_DIR, 'stats.json');
+const LOCAL_YTDLP_PATH = path.join(PROJECT_ROOT, 'vendor', process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp');
+const YTDLP_PATH = process.env.YTDLP_PATH ||
+  (fs.existsSync(LOCAL_YTDLP_PATH) ? LOCAL_YTDLP_PATH : 'yt-dlp');
 const FFMPEG_PATH = [
   '/opt/homebrew/bin/ffmpeg',
   '/usr/local/bin/ffmpeg',
@@ -235,6 +239,10 @@ function setDownloadHeaders(res, filename, extension) {
 }
 
 function getProcessErrorDetails(error, fallback) {
+  if (error?.code === 'ENOENT') {
+    return `yt-dlp executable not found. Expected "${YTDLP_PATH}". On Vercel, make sure the build installs vendor/yt-dlp and includes it in the function bundle.`;
+  }
+
   const output = [error.stderr, error.stdout]
     .filter(Boolean)
     .join('\n');
@@ -270,7 +278,7 @@ function streamYtDlpDownload({ normalizedUrl, formatId, filename, extension, res
       '4',
       normalizedUrl
     ];
-    const downloadProcess = spawn('yt-dlp', ytDlpArgs, {
+    const downloadProcess = spawn(YTDLP_PATH, ytDlpArgs, {
       stdio: ['ignore', 'pipe', 'pipe']
     });
     let stderr = '';
@@ -311,7 +319,7 @@ function streamYtDlpDownload({ normalizedUrl, formatId, filename, extension, res
       if (!res.headersSent) {
         res.status(500).json({
           error: 'Download failed',
-          details: error.message || 'Could not start downloader'
+          details: getProcessErrorDetails(error, 'Could not start downloader')
         });
       } else {
         res.destroy(error);
@@ -533,7 +541,7 @@ router.post('/info', async (req, res) => {
 
     let stdout;
     try {
-      ({ stdout } = await execFileAsync('yt-dlp', [
+      ({ stdout } = await execFileAsync(YTDLP_PATH, [
         '-j',
         '--no-warnings',
         '--no-playlist',
@@ -693,7 +701,7 @@ router.post('/download', async (req, res) => {
         normalizedUrl
       );
 
-      const { stdout } = await execFileAsync('yt-dlp', ytDlpArgs, {
+      const { stdout } = await execFileAsync(YTDLP_PATH, ytDlpArgs, {
         maxBuffer: 50 * 1024 * 1024,
         timeout: DOWNLOAD_TIMEOUT_MS
       });
