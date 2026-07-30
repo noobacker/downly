@@ -1,0 +1,23 @@
+{
+  "name": "downly",
+  "version": "1.0.0",
+  "description": "Modern multi-platform video and audio downloader",
+  "main": "server/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server/server.js",
+    "dev": "node --watch server/server.js"
+  },
+  "keywords": [
+    "downly",
+    "downloader",
+    "video",
+    "audio"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2"
+  },
+  "devDependencies": {}
+}

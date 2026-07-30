@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Downly - Download Videos & Audio</title>
+    <link rel="stylesheet" href="style.css?v=20260730-mobile-and-support-popup" />
+  </head>
+  <body>
+    <!-- Navigation -->
+    <nav class="navbar">
+      <div class="nav-container">
+        <a href="#downloader" class="logo" aria-label="Go to downloader">
+          <span class="logo-icon">▶</span>
+          <span>
+            <strong>Downly</strong>
+            <small>Media Downloader</small>
+          </span>
+        </a>
+        <div class="nav-links">
+          <a href="#downloader" class="nav-link">Downloader</a>
+          <a href="#creatorSpotlight" class="nav-link">VLOG</a>
+        </div>
+        <a
+          href="https://founder.noobacker.com/"
+          class="nav-portfolio"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Portfolio <span aria-hidden="true">↗</span>
+        </a>
+      </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section id="downloader" class="hero">
+      <div class="hero-container">
+        <div class="hero-copy">
+          <span class="hero-kicker">Fast format picker</span>
+          <h1 class="hero-title">Downly keeps downloads clean.</h1>
+          <p class="hero-subtitle">
+            Paste a link, compare clean quality groups, and choose MP4, WEBM,
+            M4A, or MP3.
+          </p>
+
+          <div class="downly-stat" aria-live="polite">
+            <strong id="downloadCount"> </strong>
+            <span>Videos downloaded with Downly</span>
+          </div>
+
+          <div class="platform-strip" aria-label="Supported platforms">
+            <span class="platform-pill platform-youtube">
+              <span class="platform-icon" aria-hidden="true">▶</span>
+              YouTube
+            </span>
+            <span class="platform-pill platform-instagram">
+              <span class="platform-icon" aria-hidden="true">◎</span>
+              Instagram
+            </span>
+            <span class="platform-pill platform-tiktok">
+              <span class="platform-icon" aria-hidden="true">♪</span>
+              TikTok
+            </span>
+            <span class="platform-pill platform-x">
+              <span class="platform-icon" aria-hidden="true">X</span>
+              X
+            </span>
+            <span class="platform-pill platform-facebook">
+              <span class="platform-icon" aria-hidden="true">f</span>
+              Facebook
+            </span>
+            <span class="platform-pill platform-more">
+              <span class="platform-icon" aria-hidden="true">+</span>
+              More
+            </span>
+          </div>
+
+          <div class="download-panel">
+            <div class="input-group">
+              <div class="input-wrapper">
+                <input
+                  type="text"
+                  id="urlInput"
+                  class="url-input"
+                  placeholder="Paste video or audio URL here..."
+                  autocomplete="off"
+                />
+                <button
+                  id="pasteBtn"
+                  class="paste-btn"
+                  title="Paste from clipboard"
+                  aria-label="Paste from clipboard"
+                >
+                  <span class="paste-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" focusable="false">
+                      <path d="M9 4h6a2 2 0 0 1 2 2v1h1a2 2 0 0 1 2 2v9a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V9a2 2 0 0 1 2-2h1V6a2 2 0 0 1 2-2Z" />
+                      <path d="M9 6v3h6V6H9Z" />
+                      <path d="M12 12v5" />
+                      <path d="m9.75 14.75 2.25 2.25 2.25-2.25" />
+                    </svg>
+                  </span>
+                </button>
+              </div>
+              <button id="getVideoBtn" class="get-video-btn">
+                <span aria-hidden="true">▶</span>
+                Get Video
+              </button>
+            </div>
+
+            <div class="suggestions">
+              <div class="suggestions-heading">
+                <span class="suggestion-label">Recent</span>
+              </div>
+              <div id="suggestionsList" class="suggestions-list"></div>
+              <button
+                id="clearHistoryBtn"
+                class="clear-history-btn"
+                type="button"
+                hidden
+              >
+                Clear
+              </button>
+            </div>
+
+            <div
+              id="urlError"
+              class="error-message"
+              style="display: none"
+            ></div>
+          </div>
+
+          <div class="feature-strip" aria-label="Downloader highlights">
+            <span>Multi-platform ready</span>
+            <span>MP3 conversion</span>
+            <span>Clear quality badges</span>
+          </div>
+        </div>
+
+        <aside
+          id="creatorSpotlight"
+          class="creator-card"
+          aria-label="Creator spotlight"
+        >
+          <a
+            class="creator-video"
+            href="https://www.youtube.com/watch?v=c7XrE_d6pzM"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Open the top Why Not Harshal vlog in a new tab"
+          >
+            <img
+              src="https://i.ytimg.com/vi/c7XrE_d6pzM/maxresdefault.jpg"
+              srcset="
+                https://i.ytimg.com/vi/c7XrE_d6pzM/maxresdefault.jpg 1280w,
+                https://i.ytimg.com/vi/c7XrE_d6pzM/sddefault.jpg      640w,
+                https://i.ytimg.com/vi/c7XrE_d6pzM/hqdefault.jpg      480w
+              "
+              sizes="(max-width: 980px) min(520px, 100vw), 360px"
+              onerror="
+                this.onerror = null;
+                this.src = 'https://i.ytimg.com/vi/c7XrE_d6pzM/hqdefault.jpg';
+              "
+              alt="Thumbnail for This is where I live in NYC"
+            />
+            <span class="play-chip">▶ Watch top vlog</span>
+          </a>
+          <div class="creator-content">
+            <span class="creator-label">Creator spotlight</span>
+            <h2>Why Not Harshal</h2>
+            <p>
+              This tool is built by me. Watch my vlog channel and show some
+              support.
+            </p>
+            <div class="creator-stats">
+              <span>Most viewed upload</span>
+              <strong>7.4K views</strong>
+            </div>
+            <h3>This is where I live in NYC - Apartment Tour + NJ Diaries</h3>
+            <div class="creator-actions">
+              <a
+                href="https://www.youtube.com/@whynotharshal?sub_confirmation=1"
+                class="creator-btn primary"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Open channel
+              </a>
+              <a
+                href="https://founder.noobacker.com/"
+                class="creator-btn secondary"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Developer Portfolio
+              </a>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      <!-- Drag & Drop Overlay -->
+      <div id="dropZone" class="drop-zone" style="display: none">
+        <div class="drop-zone-content">
+          <p>Drop video link here</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Loading State -->
+    <section id="loadingSection" class="loading-section" style="display: none">
+      <div class="loading-container">
+        <div class="spinner"></div>
+        <p class="loading-text">Fetching video information...</p>
+      </div>
+    </section>
+
+    <!-- Video Details -->
+    <section id="videoDetails" class="video-details" style="display: none">
+      <div class="details-container">
+        <!-- Thumbnail & Info -->
+        <div class="details-grid">
+          <div class="thumbnail-container">
+            <img id="thumbnail" class="thumbnail" alt="Video thumbnail" />
+          </div>
+
+          <div class="video-info">
+            <h2 id="videoTitle" class="video-title"></h2>
+            <div class="info-row">
+              <span class="info-label">Uploader:</span>
+              <span id="uploader" class="info-value"></span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Duration:</span>
+              <span id="duration" class="info-value"></span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Views:</span>
+              <span id="views" class="info-value"></span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Uploaded:</span>
+              <span id="uploadDate" class="info-value"></span>
+            </div>
+
+            <div class="description-container">
+              <button id="toggleDesc" class="toggle-desc-btn">
+                Show Description
+              </button>
+              <p id="description" class="description" style="display: none"></p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Format Tabs -->
+        <div class="format-tabs">
+          <div class="tabs-header">
+            <button class="tab-button active" data-tab="progressive">
+              Video & Audio
+            </button>
+            <button class="tab-button" data-tab="video">Video Only</button>
+            <button class="tab-button" data-tab="audio">Audio Only</button>
+          </div>
+
+          <!-- Progressive (Video + Audio) -->
+          <div id="progressive" class="tab-content active">
+            <div class="format-list-head">
+              <span>Quality</span>
+              <span>Type</span>
+              <span>Download as</span>
+            </div>
+            <div id="progressiveTable" class="format-choice-list"></div>
+            <div
+              id="progressiveEmpty"
+              class="empty-state"
+              style="display: none"
+            >
+              <p>No combined video+audio formats available</p>
+            </div>
+          </div>
+
+          <!-- Video Only -->
+          <div id="video" class="tab-content">
+            <div class="format-list-head">
+              <span>Quality</span>
+              <span>Type</span>
+              <span>Download as</span>
+            </div>
+            <div id="videoTable" class="format-choice-list"></div>
+            <div id="videoEmpty" class="empty-state" style="display: none">
+              <p>No video-only formats available</p>
+            </div>
+          </div>
+
+          <!-- Audio Only -->
+          <div id="audio" class="tab-content">
+            <div class="format-list-head">
+              <span>Quality</span>
+              <span>Type</span>
+              <span>Download as</span>
+            </div>
+            <div id="audioTable" class="format-choice-list"></div>
+            <div id="audioEmpty" class="empty-state" style="display: none">
+              <p>No audio-only formats available</p>
+            </div>
+          </div>
+        </div>
+
+        <button id="backBtn" class="back-btn">← Back</button>
+      </div>
+    </section>
+
+    <!-- Toast Notifications -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <div
+      id="supportPopup"
+      class="support-popup"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="supportPopupTitle"
+      hidden
+    >
+      <div class="support-popup-card">
+        <button
+          id="supportPopupClose"
+          class="support-popup-close"
+          type="button"
+          aria-label="Close support popup"
+        >
+          ×
+        </button>
+        <span class="support-popup-kicker">Download starting</span>
+        <h2 id="supportPopupTitle">Thanks for using Downly.</h2>
+        <p>
+          If this helped you, subscribing or supporting the channel would mean
+          a lot. No pressure at all.
+        </p>
+        <div class="support-popup-actions">
+          <a
+            class="support-popup-btn primary"
+            href="https://www.youtube.com/@whynotharshal?sub_confirmation=1"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Open channel
+          </a>
+          <a
+            class="support-popup-btn secondary"
+            href="https://www.youtube.com/@whynotharshal"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Support channel
+          </a>
+          <button id="supportPopupLater" class="support-popup-later" type="button">
+            Maybe later
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <footer id="support" class="site-footer">
+      <div class="footer-brand">
+        <span class="logo-icon">▶</span>
+        <div>
+          <strong>Downly</strong>
+          <p>Built for cleaner format choices and fewer download mistakes.</p>
+          <p class="footer-copyright">
+            &copy; <span id="copyrightYear">2026</span> Downly. All rights
+            reserved.
+          </p>
+        </div>
+      </div>
+      <div class="footer-actions">
+        <a href="#downloader">Use Downly</a>
+        <a
+          href="https://www.youtube.com/@whynotharshal"
+          target="_blank"
+          rel="noopener noreferrer"
+          >Support the channel</a
+        >
+        <a
+          href="https://founder.noobacker.com/"
+          target="_blank"
+          rel="noopener noreferrer"
+          >Meet the developer</a
+        >
+      </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="script.js?v=20260730-fast-download-start"></script>
+  </body>
+</html>
