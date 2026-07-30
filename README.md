@@ -201,6 +201,23 @@ yt-dlp --version
 - YouTube may have changed their format
 - Try updating yt-dlp: `pip install --upgrade yt-dlp`
 
+### YouTube asks to sign in or confirm you are not a bot
+Hosted serverless/datacenter IPs may trigger YouTube bot checks. On Vercel,
+configure yt-dlp with a Netscape-format cookies file:
+
+1. Export `youtube.com` cookies to `cookies.txt`.
+2. Encode the file:
+   ```bash
+   base64 -i cookies.txt | tr -d '\n' | pbcopy
+   ```
+3. In Vercel, add `YTDLP_COOKIES_BASE64` with the copied value.
+4. Redeploy the project.
+
+If YouTube still blocks requests, add `YTDLP_USER_AGENT` in Vercel with the
+same browser user-agent used when exporting cookies.
+
+Do not commit cookies to Git. Treat the cookies file like a password.
+
 ### Download fails or is slow
 - Check your internet connection
 - Some videos have size restrictions

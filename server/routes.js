@@ -19,6 +19,7 @@ const STATS_PATH = path.join(DATA_DIR, 'stats.json');
 const LOCAL_YTDLP_PATH = path.join(PROJECT_ROOT, 'vendor', process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp');
 const YTDLP_PATH = process.env.YTDLP_PATH ||
   (fs.existsSync(LOCAL_YTDLP_PATH) ? LOCAL_YTDLP_PATH : 'yt-dlp');
+const YTDLP_USER_AGENT = String(process.env.YTDLP_USER_AGENT || '').trim();
 const FFMPEG_PATH = [
   '/opt/homebrew/bin/ffmpeg',
   '/usr/local/bin/ffmpeg',
@@ -30,6 +31,8 @@ const FFMPEG_PATH = [
     fs.mkdirSync(dir, { recursive: true });
   }
 });
+
+const YTDLP_COOKIES_PATH = getYtDlpCookiesPath();
 
 const INFO_TIMEOUT_MS = 90000;
 const DOWNLOAD_TIMEOUT_MS = 30 * 60 * 1000;
@@ -258,6 +261,43 @@ function getProcessErrorDetails(error, fallback) {
   return errorLine ? errorLine.replace(/^ERROR:\s*/i, '') : fallback;
 }
 
+function getYtDlpCookiesPath() {
+  const configuredPath = String(process.env.YTDLP_COOKIES_PATH || '').trim();
+  if (configuredPath) return configuredPath;
+
+  const encodedCookies = String(process.env.YTDLP_COOKIES_BASE64 || '').trim();
+  if (!encodedCookies) return '';
+
+  try {
+    const cookies = Buffer.from(encodedCookies, 'base64').toString('utf8');
+    const cookiesPath = path.join(DATA_DIR, 'youtube-cookies.txt');
+
+    if (!/^# (HTTP|Netscape HTTP) Cookie File/m.test(cookies)) {
+      console.warn('YTDLP_COOKIES_BASE64 does not look like a Netscape cookies.txt file.');
+    }
+
+    fs.writeFileSync(cookiesPath, cookies, { mode: 0o600 });
+    return cookiesPath;
+  } catch (error) {
+    console.error('Could not write yt-dlp cookies file:', error.message);
+    return '';
+  }
+}
+
+function getYtDlpAuthArgs() {
+  const args = [];
+
+  if (YTDLP_COOKIES_PATH) {
+    args.push('--cookies', YTDLP_COOKIES_PATH);
+  }
+
+  if (YTDLP_USER_AGENT) {
+    args.push('--user-agent', YTDLP_USER_AGENT);
+  }
+
+  return args;
+}
+
 function canStreamDirectDownload({ formatId, outputFormat, mergeOutputFormat }) {
   return Boolean(formatId && !formatId.includes('+') && !outputFormat && !mergeOutputFormat);
 }
@@ -276,6 +316,7 @@ function streamYtDlpDownload({ normalizedUrl, formatId, filename, extension, res
       '20',
       '--concurrent-fragments',
       '4',
+      ...getYtDlpAuthArgs(),
       normalizedUrl
     ];
     const downloadProcess = spawn(YTDLP_PATH, ytDlpArgs, {
@@ -547,6 +588,7 @@ router.post('/info', async (req, res) => {
         '--no-playlist',
         '--socket-timeout',
         '20',
+        ...getYtDlpAuthArgs(),
         normalizedUrl
       ], {
         maxBuffer: 80 * 1024 * 1024,
@@ -694,6 +736,8 @@ router.post('/download', async (req, res) => {
       if (mergeOutputFormat) {
         ytDlpArgs.push('--merge-output-format', mergeOutputFormat);
       }
+
+      ytDlpArgs.push(...getYtDlpAuthArgs());
 
       ytDlpArgs.push(
         '--print',
