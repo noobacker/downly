@@ -433,6 +433,12 @@ function createSuggestionButton(url) {
   return btn;
 }
 
+function closeHistoryMenu() {
+  if (!state.isHistoryExpanded) return;
+  state.isHistoryExpanded = false;
+  updateSuggestions();
+}
+
 function updateSuggestions() {
   const history = loadHistory();
   suggestionsList.innerHTML = '';
@@ -450,47 +456,47 @@ function updateSuggestions() {
   const visibleHistory = history.slice(0, VISIBLE_HISTORY_COUNT);
   const hiddenHistory = history.slice(VISIBLE_HISTORY_COUNT);
 
+  const actionsWrapper = document.createElement('div');
+  actionsWrapper.className = 'history-actions';
+
   visibleHistory.forEach(url => {
     suggestionsList.appendChild(createSuggestionButton(url));
   });
 
-  if (hiddenHistory.length === 0) return;
-
   const moreWrapper = document.createElement('div');
   moreWrapper.className = 'history-more';
 
-  const moreBtn = document.createElement('button');
   const menuId = 'recentLinksMoreMenu';
-  moreBtn.className = 'history-toggle-btn';
-  moreBtn.type = 'button';
-  moreBtn.textContent = `More (${hiddenHistory.length})`;
-  moreBtn.setAttribute('aria-expanded', String(state.isHistoryExpanded));
-  moreBtn.setAttribute('aria-controls', menuId);
-  moreBtn.addEventListener('click', () => {
-    state.isHistoryExpanded = true;
-    updateSuggestions();
-  });
 
   const menu = document.createElement('div');
   menu.className = 'history-more-menu';
   menu.id = menuId;
   menu.hidden = !state.isHistoryExpanded;
+  menu.addEventListener('click', (event) => {
+    event.stopPropagation();
+  });
 
   hiddenHistory.forEach(url => {
     menu.appendChild(createSuggestionButton(url));
   });
 
-  const hideBtn = document.createElement('button');
-  hideBtn.className = 'history-hide-btn';
-  hideBtn.type = 'button';
-  hideBtn.textContent = 'Hide';
-  hideBtn.addEventListener('click', () => {
-    state.isHistoryExpanded = false;
-    updateSuggestions();
-  });
-  menu.appendChild(hideBtn);
+  if (hiddenHistory.length > 0) {
+    const moreBtn = document.createElement('button');
+    moreBtn.className = 'history-toggle-btn';
+    moreBtn.type = 'button';
+    moreBtn.textContent = `More (${hiddenHistory.length})`;
+    moreBtn.setAttribute('aria-expanded', String(state.isHistoryExpanded));
+    moreBtn.setAttribute('aria-controls', menuId);
+    moreBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      state.isHistoryExpanded = !state.isHistoryExpanded;
+      updateSuggestions();
+    });
+    actionsWrapper.append(moreBtn);
+  }
 
-  moreWrapper.append(moreBtn, menu);
+  actionsWrapper.append(clearHistoryBtn);
+  moreWrapper.append(actionsWrapper, menu);
   suggestionsList.appendChild(moreWrapper);
 }
 
@@ -1053,6 +1059,21 @@ window.addEventListener('popstate', handleCurrentHash);
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && supportPopup && !supportPopup.hidden) {
     hideSupportPopup();
+    return;
+  }
+
+  if (event.key === 'Escape') {
+    closeHistoryMenu();
+  }
+});
+document.addEventListener('click', (event) => {
+  const target = event.target;
+  if (
+    state.isHistoryExpanded &&
+    target instanceof Element &&
+    !target.closest('.history-more')
+  ) {
+    closeHistoryMenu();
   }
 });
 

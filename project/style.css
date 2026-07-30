@@ -473,7 +473,6 @@ a {
 .suggestion-btn,
 .clear-history-btn,
 .history-toggle-btn,
-.history-hide-btn,
 .footer-actions a {
   border: 3px solid var(--ink);
   border-radius: var(--radius);
@@ -503,7 +502,6 @@ a {
 .suggestion-btn:hover,
 .clear-history-btn:hover,
 .history-toggle-btn:hover,
-.history-hide-btn:hover,
 .footer-actions a:hover {
   transform: translate(-1px, -1px);
   box-shadow: 5px 5px 0 var(--ink);
@@ -516,8 +514,7 @@ a {
 .back-btn:active,
 .suggestion-btn:active,
 .clear-history-btn:active,
-.history-toggle-btn:active,
-.history-hide-btn:active {
+.history-toggle-btn:active {
   transform: translate(2px, 2px);
   box-shadow: 1px 1px 0 var(--ink);
 }
@@ -575,8 +572,14 @@ a {
   align-items: flex-start;
 }
 
-.history-toggle-btn,
-.history-hide-btn {
+.history-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: nowrap;
+}
+
+.history-toggle-btn {
   min-height: 36px;
   padding: 0.38rem 0.7rem;
   background: var(--blue);
@@ -609,11 +612,6 @@ a {
   width: 100%;
   max-width: none;
   text-align: left;
-}
-
-.history-hide-btn {
-  align-self: flex-start;
-  background: var(--yellow);
 }
 
 .clear-history-btn {
