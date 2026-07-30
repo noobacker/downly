@@ -21,6 +21,7 @@ const backBtn = document.getElementById('backBtn');
 const dropZone = document.getElementById('dropZone');
 const toastContainer = document.getElementById('toastContainer');
 const suggestionsList = document.getElementById('suggestionsList');
+const suggestionsHeading = document.querySelector('.suggestions-heading');
 const clearHistoryBtn = document.getElementById('clearHistoryBtn');
 const toggleDescBtn = document.getElementById('toggleDesc');
 const descriptionElement = document.getElementById('description');
@@ -440,6 +441,7 @@ function closeHistoryMenu() {
 }
 
 function updateSuggestions() {
+  suggestionsHeading?.querySelector('.history-more')?.remove();
   const history = loadHistory();
   suggestionsList.innerHTML = '';
   clearHistoryBtn.hidden = history.length === 0;
@@ -497,7 +499,7 @@ function updateSuggestions() {
 
   actionsWrapper.append(clearHistoryBtn);
   moreWrapper.append(actionsWrapper, menu);
-  suggestionsList.appendChild(moreWrapper);
+  suggestionsHeading?.appendChild(moreWrapper);
 }
 
 // Clipboard Operations

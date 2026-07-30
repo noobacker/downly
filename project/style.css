@@ -526,28 +526,36 @@ a {
 }
 
 .suggestions {
-  display: flex;
+  display: grid;
   min-width: 0;
   max-width: 100%;
-  align-items: center;
-  gap: 0.7rem;
-  margin-top: 0.85rem;
-  flex-wrap: wrap;
+  grid-template-columns: 1fr;
+  gap: 0.65rem;
+  margin-top: 0.75rem;
+  border: 2px solid rgba(17, 17, 17, 0.35);
+  border-radius: var(--radius);
+  background: var(--surface-muted);
+  padding: 0.75rem;
+  box-shadow: 3px 3px 0 rgba(17, 17, 17, 0.22);
 }
 
 .suggestions-heading {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 0.45rem;
-  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
 }
 
 .suggestion-label {
   background: var(--surface);
+  border-color: rgba(17, 17, 17, 0.45);
+  color: var(--muted);
 }
 
 .suggestions-list {
   display: flex;
+  width: 100%;
   max-width: 100%;
   flex-wrap: wrap;
   align-items: flex-start;
@@ -559,7 +567,7 @@ a {
   max-width: 220px;
   min-height: 36px;
   padding: 0.38rem 0.7rem;
-  background: var(--surface);
+  background: var(--paper-2);
   color: var(--ink);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -570,6 +578,7 @@ a {
   position: relative;
   display: inline-flex;
   align-items: flex-start;
+  margin-left: auto;
 }
 
 .history-actions {
@@ -582,7 +591,7 @@ a {
 .history-toggle-btn {
   min-height: 36px;
   padding: 0.38rem 0.7rem;
-  background: var(--blue);
+  background: var(--surface);
   color: var(--ink);
   box-shadow: var(--shadow-sm);
   white-space: nowrap;
@@ -591,7 +600,7 @@ a {
 .history-more-menu {
   position: absolute;
   top: calc(100% + 0.45rem);
-  left: 0;
+  right: 0;
   z-index: 20;
   width: min(340px, calc(100vw - 2rem));
   display: flex;
@@ -617,8 +626,8 @@ a {
 .clear-history-btn {
   min-height: 36px;
   padding: 0.38rem 0.7rem;
-  background: var(--red);
-  color: #ffffff;
+  background: #ffe0dd;
+  color: var(--red-dark);
   box-shadow: var(--shadow-sm);
 }
 
