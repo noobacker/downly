@@ -1,5 +1,5 @@
 import express from 'express';
-import { execFile, spawn } from 'child_process';
+import { execFile, execFileSync, spawn } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs';
 import os from 'os';
@@ -33,9 +33,74 @@ const FFMPEG_PATH = [
 });
 
 const YTDLP_COOKIES_PATH = getYtDlpCookiesPath();
+const FFMPEG_ENCODERS = getFFmpegEncoders();
 
 const INFO_TIMEOUT_MS = 90000;
 const DOWNLOAD_TIMEOUT_MS = 30 * 60 * 1000;
+const ALLOWED_AUDIO_BITRATES = [64, 128, 160, 192, 256, 320];
+const DEFAULT_AUDIO_BITRATE = 192;
+const ALLOWED_VIDEO_FPS = [30, 59.94, 60];
+const FPS_MATCH_TOLERANCE = 0.08;
+const AUDIO_OUTPUT_FORMATS = {
+  mp3: {
+    id: 'mp3',
+    label: 'MP3',
+    extension: 'mp3',
+    encoders: ['libmp3lame'],
+    muxer: 'mp3',
+    usesBitrate: true
+  },
+  m4a: {
+    id: 'm4a',
+    label: 'M4A / AAC',
+    extension: 'm4a',
+    encoders: ['aac'],
+    muxer: 'mp4',
+    usesBitrate: true
+  },
+  ogg: {
+    id: 'ogg',
+    label: 'OGG Vorbis',
+    extension: 'ogg',
+    encoders: ['libvorbis', 'vorbis'],
+    experimentalEncoders: ['vorbis'],
+    muxer: 'ogg',
+    usesBitrate: true
+  },
+  opus: {
+    id: 'opus',
+    label: 'Opus',
+    extension: 'opus',
+    encoders: ['libopus', 'opus'],
+    experimentalEncoders: ['opus'],
+    muxer: 'opus',
+    usesBitrate: true
+  },
+  flac: {
+    id: 'flac',
+    label: 'FLAC',
+    extension: 'flac',
+    encoders: ['flac'],
+    muxer: 'flac',
+    usesBitrate: false
+  },
+  wav: {
+    id: 'wav',
+    label: 'WAV',
+    extension: 'wav',
+    encoders: ['pcm_s16le'],
+    muxer: 'wav',
+    usesBitrate: false
+  },
+  alac: {
+    id: 'alac',
+    label: 'ALAC',
+    extension: 'm4a',
+    encoders: ['alac'],
+    muxer: 'mp4',
+    usesBitrate: false
+  }
+};
 const SUPPORTED_PLATFORMS = [
   { id: 'youtube', label: 'YouTube', hosts: ['youtube.com', 'youtu.be', 'music.youtube.com'] },
   { id: 'instagram', label: 'Instagram', hosts: ['instagram.com', 'instagr.am'] },
@@ -131,14 +196,40 @@ function validateURL(url) {
 function getDefaultStats() {
   return {
     downloadCount: 0,
+    totalDownloadCount: 0,
+    videoDownloadCount: 0,
+    audioDownloadCount: 0,
     updatedAt: null
   };
 }
 
+function normalizeStatsCount(value) {
+  const count = Number(value);
+  return Number.isSafeInteger(count) && count >= 0 ? count : 0;
+}
+
 function normalizeStats(stats) {
-  const count = Number(stats?.downloadCount);
+  const legacyCount = normalizeStatsCount(stats?.downloadCount);
+  const hasSplitStats = stats &&
+    (
+      Object.prototype.hasOwnProperty.call(stats, 'totalDownloadCount') ||
+      Object.prototype.hasOwnProperty.call(stats, 'videoDownloadCount') ||
+      Object.prototype.hasOwnProperty.call(stats, 'audioDownloadCount')
+    );
+  const audioDownloadCount = normalizeStatsCount(stats?.audioDownloadCount);
+  const videoDownloadCount = hasSplitStats
+    ? normalizeStatsCount(stats?.videoDownloadCount)
+    : legacyCount;
+  const explicitTotal = normalizeStatsCount(stats?.totalDownloadCount);
+  const totalDownloadCount = hasSplitStats
+    ? Math.max(explicitTotal, videoDownloadCount + audioDownloadCount)
+    : legacyCount;
+
   return {
-    downloadCount: Number.isSafeInteger(count) && count >= 0 ? count : 0,
+    downloadCount: totalDownloadCount,
+    totalDownloadCount,
+    videoDownloadCount,
+    audioDownloadCount,
     updatedAt: typeof stats?.updatedAt === 'string' ? stats.updatedAt : null
   };
 }
@@ -161,10 +252,21 @@ function writeStats(stats) {
   return normalizedStats;
 }
 
-function incrementDownloadCount() {
+function normalizeDownloadType(type) {
+  return type === 'audio' ? 'audio' : 'video';
+}
+
+function incrementDownloadCount(type = 'video') {
   const stats = readStats();
+  const downloadType = normalizeDownloadType(type);
+  const nextVideoDownloadCount = stats.videoDownloadCount + (downloadType === 'video' ? 1 : 0);
+  const nextAudioDownloadCount = stats.audioDownloadCount + (downloadType === 'audio' ? 1 : 0);
+
   return writeStats({
-    downloadCount: stats.downloadCount + 1,
+    downloadCount: stats.totalDownloadCount + 1,
+    totalDownloadCount: stats.totalDownloadCount + 1,
+    videoDownloadCount: nextVideoDownloadCount,
+    audioDownloadCount: nextAudioDownloadCount,
     updatedAt: new Date().toISOString()
   });
 }
@@ -191,15 +293,93 @@ function normalizeDownloadExtension(extension) {
   return normalized;
 }
 
+function getAudioOutputFormat(outputFormat) {
+  const normalized = String(outputFormat || '').trim().toLowerCase();
+  return AUDIO_OUTPUT_FORMATS[normalized] || null;
+}
+
+function getFFmpegEncoders() {
+  if (!FFMPEG_PATH) return new Set();
+
+  try {
+    const output = execFileSync(FFMPEG_PATH, ['-hide_banner', '-encoders'], {
+      encoding: 'utf8',
+      maxBuffer: 1024 * 1024
+    });
+
+    return new Set(
+      [...output.matchAll(/^\s*[A-Z.]{6}\s+(\S+)/gm)].map(match => match[1])
+    );
+  } catch (error) {
+    console.error('Could not inspect FFmpeg encoders:', error.message);
+    return new Set();
+  }
+}
+
+function getAudioOutputEncoder(format) {
+  return format.encoders.find(encoder => FFMPEG_ENCODERS.has(encoder)) || '';
+}
+
+function isAudioOutputFormatSupported(format) {
+  return Boolean(FFMPEG_PATH && getAudioOutputEncoder(format));
+}
+
+function getAudioConversionCapabilities() {
+  if (!FFMPEG_PATH) {
+    return {
+      bitrates: [],
+      bitrateFormats: [],
+      losslessFormats: []
+    };
+  }
+
+  const formats = Object.values(AUDIO_OUTPUT_FORMATS).map(format => ({
+    id: format.id,
+    label: format.label,
+    extension: format.extension
+  })).filter(format => isAudioOutputFormatSupported(AUDIO_OUTPUT_FORMATS[format.id]));
+
+  return {
+    bitrates: ALLOWED_AUDIO_BITRATES,
+    bitrateFormats: formats.filter(format => AUDIO_OUTPUT_FORMATS[format.id].usesBitrate),
+    losslessFormats: formats.filter(format => !AUDIO_OUTPUT_FORMATS[format.id].usesBitrate)
+  };
+}
+
 function getDownloadExtension({ outputFormat, mergeOutputFormat, container }) {
-  return normalizeDownloadExtension(outputFormat) ||
+  return getAudioOutputFormat(outputFormat)?.extension ||
+    normalizeDownloadExtension(outputFormat) ||
     normalizeDownloadExtension(mergeOutputFormat) ||
     normalizeDownloadExtension(container) ||
     'mp4';
 }
 
+function normalizeAudioBitrate(value) {
+  const bitrate = Number(value) || DEFAULT_AUDIO_BITRATE;
+  return ALLOWED_AUDIO_BITRATES.includes(bitrate) ? bitrate : 0;
+}
+
+function normalizeVideoFPS(value) {
+  if (value === undefined || value === null || value === '') return 0;
+
+  const fps = Number(value);
+  if (!Number.isFinite(fps) || fps <= 0) return 0;
+
+  const allowedFPS = ALLOWED_VIDEO_FPS.find(target =>
+    Math.abs(target - fps) <= FPS_MATCH_TOLERANCE
+  );
+
+  return allowedFPS || 0;
+}
+
+function getVideoFPSFilterValue(fps) {
+  if (Math.abs(fps - 59.94) <= FPS_MATCH_TOLERANCE) return '60000/1001';
+  return String(Math.round(fps));
+}
+
 function getDownloadMimeType(extension) {
   const mimeTypes = {
+    flac: 'audio/flac',
     m4a: 'audio/mp4',
     mka: 'audio/x-matroska',
     mkv: 'video/x-matroska',
@@ -239,6 +419,7 @@ function setDownloadHeaders(res, filename, extension) {
   );
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Accel-Buffering', 'no');
+  res.flushHeaders?.();
 }
 
 function getProcessErrorDetails(error, fallback) {
@@ -249,6 +430,9 @@ function getProcessErrorDetails(error, fallback) {
   const output = [error.stderr, error.stdout]
     .filter(Boolean)
     .join('\n');
+  const youtubeAuthError = getYoutubeAuthErrorDetails(output || error.message || '');
+  if (youtubeAuthError) return youtubeAuthError;
+
   const lines = (output || error.message || '')
     .split(/\r?\n/)
     .map(line => line.trim())
@@ -261,22 +445,103 @@ function getProcessErrorDetails(error, fallback) {
   return errorLine ? errorLine.replace(/^ERROR:\s*/i, '') : fallback;
 }
 
+function hasConfiguredYtDlpCookies() {
+  return Boolean(YTDLP_COOKIES_PATH);
+}
+
+function isYoutubeBotCheckError(message) {
+  return /sign in to confirm.*not a bot|confirm.*you(?:'|\u2019)?re not a bot|use --cookies-from-browser|use --cookies/i.test(String(message || ''));
+}
+
+function getYoutubeAuthErrorDetails(message) {
+  if (!isYoutubeBotCheckError(message)) return '';
+
+  if (hasConfiguredYtDlpCookies()) {
+    return 'YouTube rejected the configured cookies. Export fresh youtube.com cookies in Netscape format, update YTDLP_COOKIES_BASE64 or YTDLP_COOKIES, keep YTDLP_USER_AGENT matched to the browser if needed, then redeploy.';
+  }
+
+  return 'YouTube is blocking this server as a bot. Add fresh youtube.com cookies in Netscape format with YTDLP_COOKIES_BASE64 or YTDLP_COOKIES, then redeploy. If the cookies came from a browser, also set YTDLP_USER_AGENT to that browser user-agent.';
+}
+
+function normalizeCookiesText(cookies) {
+  const normalized = String(cookies || '')
+    .replace(/^\uFEFF/, '')
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n');
+
+  return normalized.includes('\n')
+    ? normalized.trim()
+    : normalized.replace(/\\n/g, '\n').trim();
+}
+
+function hasNetscapeCookieHeader(cookies) {
+  return cookies.startsWith('# HTTP Cookie File') ||
+    cookies.startsWith('# Netscape HTTP Cookie File');
+}
+
+function hasYoutubeCookieRows(cookies) {
+  return /(^|\n)[^\n#]*\.?youtube\.com\t/i.test(cookies);
+}
+
 function getYtDlpCookiesPath() {
   const configuredPath = String(process.env.YTDLP_COOKIES_PATH || '').trim();
-  if (configuredPath) return configuredPath;
+  if (configuredPath) {
+    const resolvedPath = path.isAbsolute(configuredPath)
+      ? configuredPath
+      : path.join(PROJECT_ROOT, configuredPath);
 
-  const encodedCookies = String(process.env.YTDLP_COOKIES_BASE64 || '').trim();
-  if (!encodedCookies) return '';
-
-  try {
-    const cookies = Buffer.from(encodedCookies, 'base64').toString('utf8');
-    const cookiesPath = path.join(DATA_DIR, 'youtube-cookies.txt');
-
-    if (!/^# (HTTP|Netscape HTTP) Cookie File/m.test(cookies)) {
-      console.warn('YTDLP_COOKIES_BASE64 does not look like a Netscape cookies.txt file.');
+    if (!fs.existsSync(resolvedPath)) {
+      console.warn(`YTDLP_COOKIES_PATH does not exist: ${resolvedPath}`);
+      return '';
     }
 
-    fs.writeFileSync(cookiesPath, cookies, { mode: 0o600 });
+    try {
+      const cookies = normalizeCookiesText(fs.readFileSync(resolvedPath, 'utf8'));
+      if (!hasNetscapeCookieHeader(cookies)) {
+        console.warn('YTDLP_COOKIES_PATH must point to a Netscape cookies.txt file starting with "# HTTP Cookie File" or "# Netscape HTTP Cookie File".');
+        return '';
+      }
+
+      if (!hasYoutubeCookieRows(cookies)) {
+        console.warn('YTDLP_COOKIES_PATH does not contain youtube.com cookie rows. YouTube authentication may still fail.');
+      }
+    } catch (error) {
+      console.warn(`Could not read YTDLP_COOKIES_PATH: ${error.message}`);
+      return '';
+    }
+
+    console.log('Using yt-dlp cookies from YTDLP_COOKIES_PATH.');
+    return resolvedPath;
+  }
+
+  const rawCookies = String(process.env.YTDLP_COOKIES || '').trim();
+  const encodedCookies = String(process.env.YTDLP_COOKIES_BASE64 || '').trim();
+  if (!rawCookies && !encodedCookies) return '';
+
+  const sourceName = rawCookies ? 'YTDLP_COOKIES' : 'YTDLP_COOKIES_BASE64';
+
+  try {
+    const cookies = normalizeCookiesText(
+      rawCookies || Buffer.from(encodedCookies.replace(/\s+/g, ''), 'base64').toString('utf8')
+    );
+    const cookiesPath = path.join(DATA_DIR, 'youtube-cookies.txt');
+
+    if (!cookies) {
+      console.warn(`${sourceName} is empty after decoding.`);
+      return '';
+    }
+
+    if (!hasNetscapeCookieHeader(cookies)) {
+      console.warn(`${sourceName} must be a Netscape cookies.txt file starting with "# HTTP Cookie File" or "# Netscape HTTP Cookie File".`);
+      return '';
+    }
+
+    if (!hasYoutubeCookieRows(cookies)) {
+      console.warn(`${sourceName} does not contain youtube.com cookie rows. YouTube authentication may still fail.`);
+    }
+
+    fs.writeFileSync(cookiesPath, `${cookies}\n`, { mode: 0o600 });
+    console.log(`Using yt-dlp cookies from ${sourceName}.`);
     return cookiesPath;
   } catch (error) {
     console.error('Could not write yt-dlp cookies file:', error.message);
@@ -298,12 +563,38 @@ function getYtDlpAuthArgs() {
   return args;
 }
 
-function canStreamDirectDownload({ formatId, outputFormat, mergeOutputFormat }) {
-  return Boolean(formatId && !formatId.includes('+') && !outputFormat && !mergeOutputFormat);
+function canStreamDirectDownload({ formatId, outputFormat, mergeOutputFormat, videoFps }) {
+  return Boolean(formatId && !formatId.includes('+') && !outputFormat && !mergeOutputFormat && !videoFps);
 }
 
-function streamYtDlpDownload({ normalizedUrl, formatId, filename, extension, res }) {
+function canStreamMergedDownload({ formatId, outputFormat, mergeOutputFormat, videoFps }) {
+  return Boolean(formatId && formatId.includes('+') && !outputFormat && mergeOutputFormat && !videoFps && FFMPEG_PATH);
+}
+
+function getMergedStreamArgs(mergeOutputFormat) {
+  const args = [
+    '--downloader',
+    'ffmpeg',
+    '--ffmpeg-location',
+    FFMPEG_PATH,
+    '--merge-output-format',
+    mergeOutputFormat
+  ];
+
+  if (mergeOutputFormat === 'mp4') {
+    args.push('--downloader-args', 'ffmpeg_o:-f mp4 -movflags frag_keyframe+empty_moov');
+  } else if (mergeOutputFormat === 'webm') {
+    args.push('--downloader-args', 'ffmpeg_o:-f webm');
+  } else if (mergeOutputFormat === 'mkv') {
+    args.push('--downloader-args', 'ffmpeg_o:-f matroska');
+  }
+
+  return args;
+}
+
+function streamYtDlpDownload({ normalizedUrl, formatId, filename, extension, res, mergeOutputFormat = '' }) {
   return new Promise(resolve => {
+    const isMergedStream = Boolean(mergeOutputFormat);
     const ytDlpArgs = [
       '-f',
       formatId,
@@ -314,8 +605,7 @@ function streamYtDlpDownload({ normalizedUrl, formatId, filename, extension, res
       '--no-playlist',
       '--socket-timeout',
       '20',
-      '--concurrent-fragments',
-      '4',
+      ...(isMergedStream ? getMergedStreamArgs(mergeOutputFormat) : ['--concurrent-fragments', '4']),
       ...getYtDlpAuthArgs(),
       normalizedUrl
     ];
@@ -391,6 +681,207 @@ function streamYtDlpDownload({ normalizedUrl, formatId, filename, extension, res
   });
 }
 
+function getAudioConversionStreamArgs(format, audioBitrate) {
+  const encoder = getAudioOutputEncoder(format);
+  const args = [
+    '-hide_banner',
+    '-loglevel',
+    'error',
+    '-i',
+    'pipe:0',
+    '-vn',
+    '-map',
+    '0:a:0',
+    '-codec:a',
+    encoder
+  ];
+
+  if (format.experimentalEncoders?.includes(encoder)) {
+    args.push('-strict', '-2');
+  }
+
+  if (format.usesBitrate) {
+    args.push('-b:a', `${audioBitrate}k`);
+  }
+
+  if (format.muxer === 'mp4') {
+    args.push(
+      '-f',
+      'mp4',
+      '-movflags',
+      'frag_keyframe+empty_moov+default_base_moof',
+      'pipe:1'
+    );
+    return args;
+  }
+
+  args.push('-f', format.muxer, 'pipe:1');
+  return args;
+}
+
+function getConversionStreamArgs({ outputFormat, audioBitrate, videoFps }) {
+  const audioOutputFormat = getAudioOutputFormat(outputFormat);
+  if (audioOutputFormat) return getAudioConversionStreamArgs(audioOutputFormat, audioBitrate);
+
+  return [
+    '-hide_banner',
+    '-loglevel',
+    'error',
+    '-i',
+    'pipe:0',
+    '-map',
+    '0:v:0',
+    '-map',
+    '0:a?',
+    '-vf',
+    `fps=${getVideoFPSFilterValue(videoFps)}`,
+    '-c:v',
+    'libx264',
+    '-preset',
+    'ultrafast',
+    '-crf',
+    '23',
+    '-c:a',
+    'aac',
+    '-b:a',
+    '192k',
+    '-f',
+    'mp4',
+    '-movflags',
+    'frag_keyframe+empty_moov+default_base_moof',
+    'pipe:1'
+  ];
+}
+
+function streamConvertedDownload({
+  normalizedUrl,
+  formatId,
+  filename,
+  extension,
+  res,
+  outputFormat = '',
+  audioBitrate = 0,
+  videoFps = 0,
+  mergeOutputFormat = ''
+}) {
+  return new Promise(resolve => {
+    const isMergedInput = Boolean(mergeOutputFormat);
+    const ytDlpArgs = [
+      '-f',
+      formatId,
+      '-o',
+      '-',
+      '--no-warnings',
+      '--no-progress',
+      '--no-playlist',
+      '--socket-timeout',
+      '20',
+      ...(isMergedInput ? getMergedStreamArgs(mergeOutputFormat) : ['--concurrent-fragments', '4']),
+      ...getYtDlpAuthArgs(),
+      normalizedUrl
+    ];
+    const ffmpegArgs = getConversionStreamArgs({ outputFormat, audioBitrate, videoFps });
+    const downloadProcess = spawn(YTDLP_PATH, ytDlpArgs, {
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+    const ffmpegProcess = spawn(FFMPEG_PATH, ffmpegArgs, {
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+    let stderr = '';
+    let sentDownloadHeaders = false;
+    let settled = false;
+
+    const appendStderr = chunk => {
+      stderr += chunk.toString();
+      if (stderr.length > 65536) stderr = stderr.slice(-65536);
+    };
+
+    const startDownloadResponse = () => {
+      if (!sentDownloadHeaders && !res.destroyed) {
+        sentDownloadHeaders = true;
+        setDownloadHeaders(res, filename, extension);
+      }
+    };
+
+    const stopProcesses = () => {
+      if (!downloadProcess.killed) downloadProcess.kill('SIGTERM');
+      if (!ffmpegProcess.killed) ffmpegProcess.kill('SIGTERM');
+    };
+
+    const finish = () => {
+      if (!settled) {
+        settled = true;
+        resolve();
+      }
+    };
+
+    const fail = (error, fallback, status = 400) => {
+      if (settled) return;
+      const details = getProcessErrorDetails(error, fallback);
+      stopProcesses();
+      if (!res.headersSent && !sentDownloadHeaders) {
+        res.status(status).json({ error: 'Download failed', details });
+      } else if (!res.destroyed) {
+        res.destroy(new Error(details));
+      }
+      finish();
+    };
+
+    downloadProcess.stderr.on('data', appendStderr);
+    ffmpegProcess.stderr.on('data', appendStderr);
+
+    downloadProcess.stdout.on('error', error => {
+      if (error.code !== 'EPIPE') appendStderr(Buffer.from(error.message));
+    });
+
+    ffmpegProcess.stdin.on('error', error => {
+      if (error.code !== 'EPIPE') appendStderr(Buffer.from(error.message));
+    });
+
+    downloadProcess.stdout.pipe(ffmpegProcess.stdin);
+
+    ffmpegProcess.stdout.once('data', chunk => {
+      startDownloadResponse();
+      res.write(chunk);
+      ffmpegProcess.stdout.pipe(res);
+    });
+
+    downloadProcess.once('error', error => {
+      fail(error, 'Could not start downloader', 500);
+    });
+
+    ffmpegProcess.once('error', error => {
+      fail(error, 'Could not start converter', 500);
+    });
+
+    res.once('close', () => {
+      if (!settled && !res.writableEnded) {
+        stopProcesses();
+        finish();
+      }
+    });
+
+    downloadProcess.once('close', code => {
+      if (code && code !== 0 && !settled) {
+        fail({ stderr }, 'Unable to fetch media for conversion');
+      }
+    });
+
+    ffmpegProcess.once('close', code => {
+      if (code && code !== 0 && !settled) {
+        fail({ stderr }, 'Unable to stream converted media');
+        return;
+      }
+
+      if (!res.writableEnded && !res.destroyed) {
+        startDownloadResponse();
+        res.end();
+      }
+      finish();
+    });
+  });
+}
+
 function isInsideTempDir(filePath) {
   const resolvedTempDir = path.resolve(TEMP_DIR);
   const resolvedFilePath = path.resolve(filePath);
@@ -453,6 +944,31 @@ function getVideoHeight(format) {
   return Number(format.height) || 0;
 }
 
+function extractFPS(format) {
+  const fpsCandidates = [];
+  const directFPS = Number(format.fps);
+  if (Number.isFinite(directFPS) && directFPS > 0) {
+    fpsCandidates.push(directFPS);
+  }
+
+  const details = [
+    format.format_note,
+    format.format,
+    format.resolution
+  ].filter(Boolean).join(' ');
+
+  for (const match of details.matchAll(/\b(\d+(?:\.\d+)?)\s*fps\b/gi)) {
+    fpsCandidates.push(Number(match[1]));
+  }
+
+  for (const match of details.matchAll(/\b\d{3,4}p(\d{2,3})(?:\b|[^\d])/gi)) {
+    fpsCandidates.push(Number(match[1]));
+  }
+
+  const fps = Math.max(...fpsCandidates.filter(value => Number.isFinite(value) && value > 0), 0);
+  return Number.isInteger(fps) ? fps : Number(fps.toFixed(2));
+}
+
 function getThumbnailScore(thumbnail) {
   const width = Number(thumbnail.width) || 0;
   const height = Number(thumbnail.height) || 0;
@@ -479,11 +995,13 @@ function selectBestThumbnail(videoData) {
 }
 
 function mapVideoFormat(format) {
+  const fps = extractFPS(format);
+
   return {
     id: format.format_id,
     quality: extractQuality(format),
     resolution: format.height && format.width ? `${format.width}x${format.height}` : (format.resolution || 'Unknown'),
-    fps: format.fps || 'Unknown',
+    fps: fps || 'Unknown',
     codec: (format.vcodec || 'Unknown').split('.')[0],
     container: format.ext || 'Unknown',
     filesize: getFilesize(format),
@@ -550,13 +1068,17 @@ router.get('/stats', (req, res) => {
 
 router.post('/stats/increment', (req, res) => {
   try {
-    const { url } = req.body || {};
+    const { url, type } = req.body || {};
 
     if (!url || typeof url !== 'string' || !validateURL(url)) {
       return res.status(400).json({ error: 'Valid media URL is required' });
     }
 
-    res.json(incrementDownloadCount());
+    if (type && !['video', 'audio'].includes(type)) {
+      return res.status(400).json({ error: 'Download type must be video or audio' });
+    }
+
+    res.json(incrementDownloadCount(type));
   } catch (error) {
     console.error('Stats increment error:', error);
     res.status(500).json({ error: 'Could not update download count' });
@@ -625,7 +1147,9 @@ router.post('/info', async (req, res) => {
       platform: platform.label,
       capabilities: {
         mp3: Boolean(FFMPEG_PATH),
-        merge: Boolean(FFMPEG_PATH)
+        merge: Boolean(FFMPEG_PATH),
+        fps: Boolean(FFMPEG_PATH),
+        audioConversions: getAudioConversionCapabilities()
       },
       formats: {
         video: videoFormats.map(mapVideoFormat).sort((a, b) =>
@@ -657,7 +1181,16 @@ router.post('/info', async (req, res) => {
 
 router.post('/download', async (req, res) => {
   try {
-    const { url, formatId, filename: requestedFilename, outputFormat, mergeOutputFormat, container } = req.body;
+    const {
+      url,
+      formatId,
+      filename: requestedFilename,
+      outputFormat,
+      mergeOutputFormat,
+      container,
+      audioBitrate,
+      videoFps
+    } = req.body;
 
     if (!url || typeof url !== 'string' || !formatId || typeof formatId !== 'string') {
       return res.status(400).json({ error: 'URL and format ID required' });
@@ -676,8 +1209,28 @@ router.post('/download', async (req, res) => {
       return res.status(400).json({ error: 'Invalid format ID' });
     }
 
-    if (outputFormat && outputFormat !== 'mp3') {
+    const requestedOutputFormat = getAudioOutputFormat(outputFormat);
+    const isAudioConversion = Boolean(requestedOutputFormat);
+
+    if (outputFormat && !requestedOutputFormat) {
       return res.status(400).json({ error: 'Unsupported output format' });
+    }
+
+    const requestedAudioBitrate = requestedOutputFormat?.usesBitrate
+      ? normalizeAudioBitrate(audioBitrate)
+      : 0;
+    const requestedVideoFPS = normalizeVideoFPS(videoFps);
+
+    if (requestedOutputFormat?.usesBitrate && !requestedAudioBitrate) {
+      return res.status(400).json({ error: 'Unsupported audio bitrate' });
+    }
+
+    if (videoFps && !requestedVideoFPS) {
+      return res.status(400).json({ error: 'Unsupported video FPS' });
+    }
+
+    if (isAudioConversion && requestedVideoFPS) {
+      return res.status(400).json({ error: 'Choose either audio conversion or video FPS conversion' });
     }
 
     if (mergeOutputFormat && !['mp4', 'webm', 'mkv'].includes(mergeOutputFormat)) {
@@ -691,23 +1244,59 @@ router.post('/download', async (req, res) => {
       });
     }
 
-    if (outputFormat === 'mp3' && !FFMPEG_PATH) {
+    if (isAudioConversion && !isAudioOutputFormatSupported(requestedOutputFormat)) {
       return res.status(400).json({
-        error: 'MP3 conversion unavailable',
-        details: 'MP3 conversion requires FFmpeg on this system'
+        error: `${requestedOutputFormat.label} conversion unavailable`,
+        details: 'This audio conversion requires a supported FFmpeg encoder on this system'
       });
     }
 
-    const streamExtension = getDownloadExtension({ outputFormat, mergeOutputFormat, container });
+    if (requestedVideoFPS && !FFMPEG_PATH) {
+      return res.status(400).json({
+        error: 'FPS conversion unavailable',
+        details: 'FPS conversion requires FFmpeg on this system'
+      });
+    }
+
+    const streamExtension = requestedVideoFPS
+      ? 'mp4'
+      : getDownloadExtension({ outputFormat: requestedOutputFormat?.id, mergeOutputFormat, container });
     const streamFilename = getResponseFilename(requestedFilename, streamExtension);
 
-    if (canStreamDirectDownload({ formatId, outputFormat, mergeOutputFormat })) {
+    if (canStreamDirectDownload({ formatId, outputFormat: requestedOutputFormat?.id, mergeOutputFormat, videoFps: requestedVideoFPS })) {
       await streamYtDlpDownload({
         normalizedUrl,
         formatId,
         filename: streamFilename,
         extension: streamExtension,
         res
+      });
+      return;
+    }
+
+    if (canStreamMergedDownload({ formatId, outputFormat: requestedOutputFormat?.id, mergeOutputFormat, videoFps: requestedVideoFPS })) {
+      await streamYtDlpDownload({
+        normalizedUrl,
+        formatId,
+        filename: streamFilename,
+        extension: streamExtension,
+        res,
+        mergeOutputFormat
+      });
+      return;
+    }
+
+    if (isAudioConversion || requestedVideoFPS) {
+      await streamConvertedDownload({
+        normalizedUrl,
+        formatId,
+        filename: streamFilename,
+        extension: streamExtension,
+        res,
+        outputFormat: requestedOutputFormat?.id || '',
+        audioBitrate: requestedAudioBitrate,
+        videoFps: requestedVideoFPS,
+        mergeOutputFormat
       });
       return;
     }
@@ -786,7 +1375,7 @@ router.post('/download', async (req, res) => {
           '-codec:a',
           'libmp3lame',
           '-b:a',
-          '192k',
+          `${requestedAudioBitrate}k`,
           convertedPath
       ], {
         maxBuffer: 10 * 1024 * 1024,
@@ -816,6 +1405,66 @@ router.post('/download', async (req, res) => {
           }
         });
         return res.status(500).json({ error: 'Converted MP3 file was not created' });
+      }
+
+      downloadedPath = convertedPath;
+      cleanupPaths.add(downloadedPath);
+    }
+
+    if (requestedVideoFPS) {
+      const convertedPath = `${filePrefix}_${String(requestedVideoFPS).replace('.', '_')}fps.mp4`;
+      try {
+        await execFileAsync(FFMPEG_PATH, [
+          '-y',
+          '-i',
+          downloadedPath,
+          '-map',
+          '0:v:0',
+          '-map',
+          '0:a?',
+          '-vf',
+          `fps=${getVideoFPSFilterValue(requestedVideoFPS)}`,
+          '-c:v',
+          'libx264',
+          '-preset',
+          'veryfast',
+          '-crf',
+          '20',
+          '-c:a',
+          'aac',
+          '-b:a',
+          '192k',
+          '-movflags',
+          '+faststart',
+          convertedPath
+      ], {
+        maxBuffer: 20 * 1024 * 1024,
+        timeout: DOWNLOAD_TIMEOUT_MS
+      });
+      } catch (error) {
+        console.error('FPS conversion error:', error.message);
+        cleanupPaths.forEach(filePath => {
+          try {
+            if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+          } catch (e) {
+            console.error('Cleanup error:', e);
+          }
+        });
+        return res.status(400).json({
+          error: 'FPS conversion failed',
+          details: getProcessErrorDetails(error, 'Unable to convert this video to the selected FPS')
+        });
+      }
+
+      if (!fs.existsSync(convertedPath)) {
+        cleanupPaths.forEach(filePath => {
+          try {
+            if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+          } catch (e) {
+            console.error('Cleanup error:', e);
+          }
+        });
+        return res.status(500).json({ error: 'Converted video file was not created' });
       }
 
       downloadedPath = convertedPath;

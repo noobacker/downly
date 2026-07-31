@@ -168,6 +168,49 @@ The application uses yt-dlp to extract video metadata and formats. yt-dlp is a m
 - **Audio formats** - Audio-only streams (MP3, M4A, etc.)
 - **Progressive formats** - Video + audio combined (no merging needed)
 
+### Video Qualities
+
+- 144p
+- 240p
+- 360p
+- 480p
+- 720p (HD)
+- 1080p (Full HD)
+- 1440p (2K)
+- 2160p (4K)
+- 4320p (8K)
+
+### Video Formats
+
+- MP4
+- WebM
+- MKV
+
+### Video FPS
+
+- 24 fps
+- 30 fps
+- 59.94 fps
+- 60 fps
+
+### Audio Formats
+
+- MP3
+- M4A
+- AAC
+- Opus
+- WAV
+- FLAC
+- OGG
+
+### Audio Quality (Bitrate)
+
+- 64 kbps
+- 128 kbps
+- 192 kbps
+- 256 kbps
+- 320 kbps
+
 ## Features Guide
 
 ### Paste from Clipboard
@@ -213,8 +256,14 @@ configure yt-dlp with a Netscape-format cookies file:
 3. In Vercel, add `YTDLP_COOKIES_BASE64` with the copied value.
 4. Redeploy the project.
 
-If YouTube still blocks requests, add `YTDLP_USER_AGENT` in Vercel with the
-same browser user-agent used when exporting cookies.
+The cookie file must start with `# HTTP Cookie File` or
+`# Netscape HTTP Cookie File`. The server also accepts raw multiline cookie
+contents in `YTDLP_COOKIES`, or a readable file path in `YTDLP_COOKIES_PATH`,
+but `YTDLP_COOKIES_BASE64` is safest for hosted deployments.
+
+If YouTube still blocks requests, export fresh cookies and add
+`YTDLP_USER_AGENT` in Vercel with the same browser user-agent used when
+exporting cookies.
 
 Do not commit cookies to Git. Treat the cookies file like a password.
 

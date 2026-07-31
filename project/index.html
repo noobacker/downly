@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Downly - Download Videos & Audio</title>
-    <link rel="stylesheet" href="style.css?v=20260730-mobile-and-support-popup" />
+    <link rel="stylesheet" href="style.css?v=20260731-download-stats" />
   </head>
   <body>
     <!-- Navigation -->
@@ -19,6 +19,8 @@
         </a>
         <div class="nav-links">
           <a href="#downloader" class="nav-link">Downloader</a>
+          <a href="#whyChoose" class="nav-link">Why</a>
+          <a href="#howToDownload" class="nav-link">Steps</a>
           <a href="#creatorSpotlight" class="nav-link">VLOG</a>
         </div>
         <a
@@ -43,9 +45,23 @@
             M4A, or MP3.
           </p>
 
-          <div class="downly-stat" aria-live="polite">
-            <strong id="downloadCount"> </strong>
-            <span>Videos downloaded with Downly</span>
+          <div
+            class="downly-stat"
+            aria-live="polite"
+            aria-label="Download totals"
+          >
+            <div class="stat-item">
+              <span class="stat-label">Total till now</span>
+              <strong id="totalDownloadCount"> </strong>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">Videos</span>
+              <strong id="videoDownloadCount"> </strong>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">Audio</span>
+              <strong id="audioDownloadCount"> </strong>
+            </div>
           </div>
 
           <div class="platform-strip" aria-label="Supported platforms">
@@ -93,7 +109,9 @@
                 >
                   <span class="paste-icon" aria-hidden="true">
                     <svg viewBox="0 0 24 24" focusable="false">
-                      <path d="M9 4h6a2 2 0 0 1 2 2v1h1a2 2 0 0 1 2 2v9a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V9a2 2 0 0 1 2-2h1V6a2 2 0 0 1 2-2Z" />
+                      <path
+                        d="M9 4h6a2 2 0 0 1 2 2v1h1a2 2 0 0 1 2 2v9a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V9a2 2 0 0 1 2-2h1V6a2 2 0 0 1 2-2Z"
+                      />
                       <path d="M9 6v3h6V6H9Z" />
                       <path d="M12 12v5" />
                       <path d="m9.75 14.75 2.25 2.25 2.25-2.25" />
@@ -206,6 +224,150 @@
       </div>
     </section>
 
+    <section
+      id="whyChoose"
+      class="info-section why-section"
+      style="display: none"
+    >
+      <div class="info-section-container">
+        <div class="section-heading">
+          <span class="section-kicker">Why choose Downly</span>
+          <h2>Why Choose Our YouTube Downloader?</h2>
+          <p>
+            The fastest, safest, and most reliable way to download YouTube
+            videos in the format you need.
+          </p>
+        </div>
+
+        <div class="benefit-grid">
+          <article class="benefit-card">
+            <span class="benefit-icon">FAST</span>
+            <h3>Lightning Fast</h3>
+            <p>
+              Downloads start quickly with an optimized pipeline. No waiting
+              around for long videos to finish preparing.
+            </p>
+          </article>
+
+          <article class="benefit-card">
+            <div class="benefit-chip-row" aria-label="Popular output formats">
+              <span>MP4</span>
+              <span>MP3</span>
+              <span>WAV</span>
+              <span>WEBM</span>
+            </div>
+            <h3>Multiple Formats</h3>
+            <p>
+              Download as MP4, MP3, WAV, WebM, M4A, FLAC, OGG, or Opus. Choose
+              the format that fits your device.
+            </p>
+          </article>
+
+          <article class="benefit-card">
+            <span class="benefit-icon">4K</span>
+            <h3>4K &amp; HD Quality</h3>
+            <p>
+              Keep videos in their available quality, from compact mobile sizes
+              up to crisp 4K with clean audio.
+            </p>
+          </article>
+
+          <article class="benefit-card">
+            <span class="benefit-icon">CLEAN</span>
+            <h3>No Added Watermarks</h3>
+            <p>
+              Save clean files without extra Downly branding. Your videos, your
+              format, your way.
+            </p>
+          </article>
+
+          <article class="benefit-card">
+            <span class="benefit-icon">FREE</span>
+            <h3>Lifetime Free</h3>
+            <p>
+              Use Downly without subscriptions, trials, or hidden upgrade
+              prompts. The downloader stays free whenever you need it.
+            </p>
+          </article>
+
+          <article class="benefit-card">
+            <span class="benefit-icon">NO ADS</span>
+            <h3>Zero Ad Pop-ups</h3>
+            <p>
+              No ads, no pop-up interruptions, and no clutter between you and
+              your download options.
+            </p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section
+      id="howToDownload"
+      class="info-section steps-section"
+      style="display: none"
+    >
+      <div class="info-section-container">
+        <div class="section-heading">
+          <span class="section-kicker">Three simple steps</span>
+          <h2>How to Download YouTube Videos</h2>
+          <p>
+            Download any video in just 3 simple steps. No technical knowledge
+            required.
+          </p>
+        </div>
+
+        <div class="steps-grid">
+          <article class="step-card">
+            <div class="step-visual">
+              <span class="url-chip">youtube.com/...</span>
+              <span class="url-chip">tiktok.com/...</span>
+              <span class="url-chip">instagram.com/...</span>
+              <span class="url-chip">more...</span>
+              <span class="step-number">1</span>
+            </div>
+            <h3>Paste Media URL</h3>
+            <p>
+              Copy the video URL from YouTube and paste it into the Downloader
+              page.
+            </p>
+          </article>
+
+          <article class="step-card">
+            <div class="step-visual quality-visual">
+              <span>8K</span>
+              <span>4K</span>
+              <span>HD</span>
+              <span>720p</span>
+              <span>MP3</span>
+              <span>WAV</span>
+              <span>WEBM</span>
+              <span>more</span>
+
+              <span class="step-number">2</span>
+            </div>
+            <h3>Select Quality</h3>
+            <p>
+              Choose your preferred video quality, audio bitrate, and output
+              format from the available options on the Downloader page.
+            </p>
+          </article>
+
+          <article class="step-card">
+            <div class="step-visual download-visual">
+              <span class="download-symbol" aria-hidden="true">↓</span>
+              <span class="step-number">3</span>
+            </div>
+            <h3>Download &amp; Enjoy</h3>
+            <p>
+              Click download and save the video directly to your device. It is
+              that simple.
+            </p>
+          </article>
+        </div>
+      </div>
+    </section>
+
     <!-- Loading State -->
     <section id="loadingSection" class="loading-section" style="display: none">
       <div class="loading-container">
@@ -263,11 +425,6 @@
 
           <!-- Progressive (Video + Audio) -->
           <div id="progressive" class="tab-content active">
-            <div class="format-list-head">
-              <span>Quality</span>
-              <span>Type</span>
-              <span>Download as</span>
-            </div>
             <div id="progressiveTable" class="format-choice-list"></div>
             <div
               id="progressiveEmpty"
@@ -280,11 +437,6 @@
 
           <!-- Video Only -->
           <div id="video" class="tab-content">
-            <div class="format-list-head">
-              <span>Quality</span>
-              <span>Type</span>
-              <span>Download as</span>
-            </div>
             <div id="videoTable" class="format-choice-list"></div>
             <div id="videoEmpty" class="empty-state" style="display: none">
               <p>No video-only formats available</p>
@@ -293,11 +445,6 @@
 
           <!-- Audio Only -->
           <div id="audio" class="tab-content">
-            <div class="format-list-head">
-              <span>Quality</span>
-              <span>Type</span>
-              <span>Download as</span>
-            </div>
             <div id="audioTable" class="format-choice-list"></div>
             <div id="audioEmpty" class="empty-state" style="display: none">
               <p>No audio-only formats available</p>
@@ -332,8 +479,8 @@
         <span class="support-popup-kicker">Download starting</span>
         <h2 id="supportPopupTitle">Thanks for using Downly.</h2>
         <p>
-          If this helped you, subscribing or supporting the channel would mean
-          a lot. No pressure at all.
+          If this helped you, subscribing or supporting the channel would mean a
+          lot. No pressure at all.
         </p>
         <div class="support-popup-actions">
           <a
@@ -352,7 +499,11 @@
           >
             Support channel
           </a>
-          <button id="supportPopupLater" class="support-popup-later" type="button">
+          <button
+            id="supportPopupLater"
+            class="support-popup-later"
+            type="button"
+          >
             Maybe later
           </button>
         </div>
@@ -372,7 +523,6 @@
         </div>
       </div>
       <div class="footer-actions">
-        <a href="#downloader">Use Downly</a>
         <a
           href="https://www.youtube.com/@whynotharshal"
           target="_blank"
@@ -389,6 +539,6 @@
     </footer>
 
     <!-- Scripts -->
-    <script src="script.js?v=20260730-fast-download-start"></script>
+    <script src="script.js?v=20260731-download-stats"></script>
   </body>
 </html>
