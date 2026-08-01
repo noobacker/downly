@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Downly - Download Videos & Audio</title>
-    <link rel="stylesheet" href="style.css?v=20260731-download-stats" />
+    <link rel="stylesheet" href="style.css?v=20260801-pro-polish" />
   </head>
   <body>
     <!-- Navigation -->
@@ -21,8 +21,22 @@
           <a href="#downloader" class="nav-link">Downloader</a>
           <a href="#whyChoose" class="nav-link">Why</a>
           <a href="#howToDownload" class="nav-link">Steps</a>
-          <a href="#creatorSpotlight" class="nav-link">VLOG</a>
+          <a href="#creatorSpotlight" class="nav-link nav-link-vlog">VLOG</a>
         </div>
+        <button
+          id="themeToggle"
+          class="theme-toggle"
+          type="button"
+          role="switch"
+          aria-checked="false"
+          aria-label="Switch to glass UI"
+        >
+          <span class="theme-toggle-track" aria-hidden="true">
+            <span class="theme-toggle-label standard">Classic</span>
+            <span class="theme-toggle-label glass">Pro</span>
+            <span class="theme-toggle-thumb"></span>
+          </span>
+        </button>
         <a
           href="https://founder.noobacker.com/"
           class="nav-portfolio"
@@ -34,10 +48,52 @@
       </div>
     </nav>
 
+    <div id="themeTransition" class="theme-transition-stage" aria-hidden="true">
+      <div class="transition-wash"></div>
+      <div class="transition-liquid"></div>
+      <div class="transition-ribbons">
+        <span></span>
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+      <div class="transition-drops">
+        <span></span>
+        <span></span>
+        <span></span>
+        <span></span>
+        <span></span>
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+      <div class="transition-shards">
+        <span></span>
+        <span></span>
+        <span></span>
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+      <div class="transition-reveal"></div>
+    </div>
+
     <!-- Hero Section -->
     <section id="downloader" class="hero">
       <div class="hero-container">
         <div class="hero-copy">
+          <div class="pro-copy">
+            <span class="pro-eyebrow">
+              <span aria-hidden="true">▶</span>
+              Video downloader
+            </span>
+            <h1>Download videos and audio without the mess.</h1>
+            <p>
+              Paste any supported link, choose a clean quality option, and save
+              the format that fits your device.
+            </p>
+          </div>
+
           <span class="hero-kicker">Fast format picker</span>
           <h1 class="hero-title">Downly keeps downloads clean.</h1>
           <p class="hero-subtitle">
@@ -91,6 +147,29 @@
             </span>
           </div>
 
+          <div class="pro-platform-grid" aria-label="Popular platforms">
+            <span class="pro-platform-card youtube">
+              <strong>▶</strong>
+              <span>YouTube</span>
+              <small>Videos, Shorts, music</small>
+            </span>
+            <span class="pro-platform-card instagram">
+              <strong>◎</strong>
+              <span>Instagram</span>
+              <small>Reels and posts</small>
+            </span>
+            <span class="pro-platform-card tiktok">
+              <strong>♪</strong>
+              <span>TikTok</span>
+              <small>Mobile clips</small>
+            </span>
+            <span class="pro-platform-card facebook">
+              <strong>f</strong>
+              <span>Facebook</span>
+              <small>Public videos</small>
+            </span>
+          </div>
+
           <div class="download-panel">
             <div class="input-group">
               <div class="input-wrapper">
@@ -132,6 +211,12 @@
             ></div>
           </div>
 
+          <div class="pro-quick-notes" aria-label="Downloader benefits">
+            <span>No account needed</span>
+            <span>MP4 and MP3 ready</span>
+            <span>Quality grouped clearly</span>
+          </div>
+
           <div class="suggestions">
             <div class="suggestions-heading">
               <span class="suggestion-label">Recent</span>
@@ -156,44 +241,16 @@
 
         <aside
           id="creatorSpotlight"
-          class="creator-card"
-          aria-label="Creator spotlight"
+          class="creator-card creator-videos"
+          aria-label="Why Not Harshal videos"
         >
-          <a
-            class="creator-video"
-            href="https://www.youtube.com/watch?v=c7XrE_d6pzM"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Open the top Why Not Harshal vlog in a new tab"
-          >
-            <img
-              src="https://i.ytimg.com/vi/c7XrE_d6pzM/maxresdefault.jpg"
-              srcset="
-                https://i.ytimg.com/vi/c7XrE_d6pzM/maxresdefault.jpg 1280w,
-                https://i.ytimg.com/vi/c7XrE_d6pzM/sddefault.jpg      640w,
-                https://i.ytimg.com/vi/c7XrE_d6pzM/hqdefault.jpg      480w
-              "
-              sizes="(max-width: 980px) min(520px, 100vw), 360px"
-              onerror="
-                this.onerror = null;
-                this.src = 'https://i.ytimg.com/vi/c7XrE_d6pzM/hqdefault.jpg';
-              "
-              alt="Thumbnail for This is where I live in NYC"
-            />
-            <span class="play-chip">▶ Watch top vlog</span>
-          </a>
-          <div class="creator-content">
-            <span class="creator-label">Creator spotlight</span>
+          <div class="creator-content creator-intro">
+            <span class="creator-label">Creator channel</span>
             <h2>Why Not Harshal</h2>
             <p>
-              This tool is built by me. Watch my vlog channel and show some
-              support.
+              This tool is built by me. Watch the channel, follow the journey,
+              and support the build.
             </p>
-            <div class="creator-stats">
-              <span>Most viewed upload</span>
-              <strong>7.4K views</strong>
-            </div>
-            <h3>This is where I live in NYC - Apartment Tour + NJ Diaries</h3>
             <div class="creator-actions">
               <a
                 href="https://www.youtube.com/@whynotharshal?sub_confirmation=1"
@@ -212,6 +269,70 @@
                 Developer Portfolio
               </a>
             </div>
+          </div>
+          <div class="creator-video-grid">
+            <article class="creator-video-card">
+              <a
+                class="creator-video"
+                href="https://www.youtube.com/watch?v=c7XrE_d6pzM"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Open the most viewed Why Not Harshal upload in a new tab"
+              >
+                <img
+                  src="https://i.ytimg.com/vi/c7XrE_d6pzM/maxresdefault.jpg"
+                  srcset="
+                    https://i.ytimg.com/vi/c7XrE_d6pzM/maxresdefault.jpg 1280w,
+                    https://i.ytimg.com/vi/c7XrE_d6pzM/sddefault.jpg      640w,
+                    https://i.ytimg.com/vi/c7XrE_d6pzM/hqdefault.jpg      480w
+                  "
+                  sizes="(max-width: 760px) calc(100vw - 2rem), 420px"
+                  onerror="
+                    this.onerror = null;
+                    this.src = 'https://i.ytimg.com/vi/c7XrE_d6pzM/hqdefault.jpg';
+                  "
+                  alt=""
+                />
+                <span class="play-chip">▶ Watch</span>
+              </a>
+              <div class="creator-video-meta">
+                <span class="creator-video-tag">Most viewed</span>
+                <h3>This is where I live in NYC</h3>
+                <p>Apartment Tour + NJ Diaries</p>
+                <strong>7.4K views</strong>
+              </div>
+            </article>
+
+            <article class="creator-video-card">
+              <a
+                class="creator-video"
+                href="https://www.youtube.com/watch?v=ZwAJ6Qx5VbM"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Open the most recent Why Not Harshal upload in a new tab"
+              >
+                <img
+                  src="https://i.ytimg.com/vi/ZwAJ6Qx5VbM/maxresdefault.jpg"
+                  srcset="
+                    https://i.ytimg.com/vi/ZwAJ6Qx5VbM/maxresdefault.jpg 1280w,
+                    https://i.ytimg.com/vi/ZwAJ6Qx5VbM/sddefault.jpg      640w,
+                    https://i.ytimg.com/vi/ZwAJ6Qx5VbM/hqdefault.jpg      480w
+                  "
+                  sizes="(max-width: 760px) calc(100vw - 2rem), 420px"
+                  onerror="
+                    this.onerror = null;
+                    this.src = 'https://i.ytimg.com/vi/ZwAJ6Qx5VbM/hqdefault.jpg';
+                  "
+                  alt=""
+                />
+                <span class="play-chip">▶ Watch</span>
+              </a>
+              <div class="creator-video-meta">
+                <span class="creator-video-tag">Most recent</span>
+                <h3>Inside NYU Tandon’s 6 MetroTech Center</h3>
+                <p>Campus Tour Ep. 1</p>
+              </div>
+            </article>
           </div>
         </aside>
       </div>
@@ -539,6 +660,6 @@
     </footer>
 
     <!-- Scripts -->
-    <script src="script.js?v=20260731-download-stats"></script>
+    <script src="script.js?v=20260801-pro-polish"></script>
   </body>
 </html>

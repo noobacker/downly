@@ -11,6 +11,8 @@ const state = {
     audioDownloadCount: 0,
   },
   isHistoryExpanded: false,
+  currentTheme: "standard",
+  isThemeSwitching: false,
 };
 
 // DOM Elements
@@ -40,16 +42,21 @@ const copyrightYearElement = document.getElementById("copyrightYear");
 const supportPopup = document.getElementById("supportPopup");
 const supportPopupCloseBtn = document.getElementById("supportPopupClose");
 const supportPopupLaterBtn = document.getElementById("supportPopupLater");
+const themeToggle = document.getElementById("themeToggle");
+const themeTransition = document.getElementById("themeTransition");
 
 let supportPopupPreviousFocus = null;
+let themeTransitionTimers = [];
 
 // Constants
 const LEGACY_HISTORY_KEY = "yt-downloader-history";
 const HISTORY_KEY = "downly-history";
+const THEME_KEY = "downly-ui-theme";
 const API_BASE = "/api";
 const MAX_HISTORY = 9;
 const VISIBLE_HISTORY_COUNT = 3;
 const VIDEO_INFO_TIMEOUT_MS = 95000;
+const VALID_THEMES = new Set(["standard", "glass"]);
 const SUPPORTED_PLATFORMS = [
   {
     id: "youtube",
@@ -1033,6 +1040,99 @@ function renderCopyrightYear() {
   }
 }
 
+function getStoredTheme() {
+  try {
+    const storedTheme = localStorage.getItem(THEME_KEY);
+    return VALID_THEMES.has(storedTheme) ? storedTheme : "standard";
+  } catch (error) {
+    console.error("Theme load error:", error);
+    return "standard";
+  }
+}
+
+function persistTheme(theme) {
+  try {
+    localStorage.setItem(THEME_KEY, theme);
+  } catch (error) {
+    console.error("Theme save error:", error);
+  }
+}
+
+function updateThemeToggle(theme) {
+  if (!themeToggle) return;
+
+  const isGlass = theme === "glass";
+  themeToggle.dataset.theme = theme;
+  themeToggle.setAttribute("aria-checked", String(isGlass));
+  themeToggle.setAttribute(
+    "aria-label",
+    `Switch to ${isGlass ? "classic" : "pro"} UI`,
+  );
+  themeToggle.title = isGlass ? "Switch to classic UI" : "Switch to pro UI";
+}
+
+function applyTheme(theme, shouldPersist = false) {
+  const normalizedTheme = VALID_THEMES.has(theme) ? theme : "standard";
+  state.currentTheme = normalizedTheme;
+  document.body.classList.toggle("theme-glass", normalizedTheme === "glass");
+  document.body.dataset.uiTheme = normalizedTheme;
+  updateThemeToggle(normalizedTheme);
+
+  if (shouldPersist) {
+    persistTheme(normalizedTheme);
+  }
+}
+
+function clearThemeTransitionTimers() {
+  themeTransitionTimers.forEach((timerId) => window.clearTimeout(timerId));
+  themeTransitionTimers = [];
+}
+
+function finishThemeTransition() {
+  themeTransition?.classList.remove("is-active", "to-glass", "to-standard");
+  document.body.classList.remove("theme-morphing");
+  state.isThemeSwitching = false;
+  themeTransitionTimers = [];
+
+  if (themeToggle) {
+    themeToggle.disabled = false;
+  }
+}
+
+function prefersReducedMotion() {
+  return (
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+}
+
+function switchTheme() {
+  if (state.isThemeSwitching) return;
+
+  const nextTheme = state.currentTheme === "glass" ? "standard" : "glass";
+
+  if (!themeTransition || prefersReducedMotion()) {
+    applyTheme(nextTheme, true);
+    return;
+  }
+
+  state.isThemeSwitching = true;
+  if (themeToggle) {
+    themeToggle.disabled = true;
+  }
+
+  clearThemeTransitionTimers();
+  themeTransition.classList.remove("is-active", "to-glass", "to-standard");
+  void themeTransition.offsetWidth;
+  themeTransition.classList.add("is-active", `to-${nextTheme}`);
+  document.body.classList.add("theme-morphing");
+
+  themeTransitionTimers.push(
+    window.setTimeout(() => applyTheme(nextTheme, true), 520),
+    window.setTimeout(finishThemeTransition, 1380),
+  );
+}
+
 // API Calls
 async function fetchDownloadStats() {
   try {
@@ -1547,6 +1647,7 @@ urlInput.addEventListener("keydown", (e) => {
 getVideoBtn.addEventListener("click", handleGetVideo);
 backBtn.addEventListener("click", handleBack);
 clearHistoryBtn.addEventListener("click", clearHistory);
+themeToggle?.addEventListener("click", switchTheme);
 supportPopupCloseBtn?.addEventListener("click", hideSupportPopup);
 supportPopupLaterBtn?.addEventListener("click", hideSupportPopup);
 supportPopup?.addEventListener("click", (event) => {
@@ -1588,6 +1689,7 @@ document.addEventListener("click", (event) => {
 });
 
 // Initialize
+applyTheme(getStoredTheme());
 migrateLegacyHistory();
 updateSuggestions();
 fetchDownloadStats();
