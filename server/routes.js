@@ -20,6 +20,9 @@ const LOCAL_YTDLP_PATH = path.join(PROJECT_ROOT, 'vendor', process.platform === 
 const YTDLP_PATH = process.env.YTDLP_PATH ||
   (fs.existsSync(LOCAL_YTDLP_PATH) ? LOCAL_YTDLP_PATH : 'yt-dlp');
 const YTDLP_USER_AGENT = String(process.env.YTDLP_USER_AGENT || '').trim();
+const YTDLP_YOUTUBE_PLAYER_CLIENT = String(
+  process.env.YTDLP_YOUTUBE_PLAYER_CLIENT || '',
+).trim();
 const FFMPEG_PATH = [
   '/opt/homebrew/bin/ffmpeg',
   '/usr/local/bin/ffmpeg',
@@ -558,6 +561,13 @@ function getYtDlpAuthArgs() {
 
   if (YTDLP_USER_AGENT) {
     args.push('--user-agent', YTDLP_USER_AGENT);
+  }
+
+  if (YTDLP_YOUTUBE_PLAYER_CLIENT) {
+    args.push(
+      '--extractor-args',
+      `youtube:player_client=${YTDLP_YOUTUBE_PLAYER_CLIENT}`,
+    );
   }
 
   return args;
