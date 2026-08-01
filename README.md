@@ -157,6 +157,10 @@ Downloads a specific format.
 
 The application uses yt-dlp to extract video metadata and formats. yt-dlp is a maintained fork of youtube-dl with better support and more frequent updates.
 
+### Automated YouTube PO tokens
+
+YouTube may require short-lived proof-of-origin tokens. The production build automatically installs the `bgutil-ytdlp-pot-provider` yt-dlp plugin. For production YouTube reliability, run the companion provider service described in [`infra/bgutil-provider/README.md`](infra/bgutil-provider/README.md), then set `YTDLP_POT_PROVIDER_URL` in Vercel. This removes the need to manually rotate browser cookies for public videos.
+
 ### Supported Sites
 - youtube.com
 - youtu.be

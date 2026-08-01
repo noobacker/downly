@@ -20,9 +20,13 @@ const LOCAL_YTDLP_PATH = path.join(PROJECT_ROOT, 'vendor', process.platform === 
 const YTDLP_PATH = process.env.YTDLP_PATH ||
   (fs.existsSync(LOCAL_YTDLP_PATH) ? LOCAL_YTDLP_PATH : 'yt-dlp');
 const YTDLP_USER_AGENT = String(process.env.YTDLP_USER_AGENT || '').trim();
+const YTDLP_POT_PROVIDER_URL = String(process.env.YTDLP_POT_PROVIDER_URL || '').trim().replace(/\/$/, '');
+const YTDLP_USE_COOKIES = !YTDLP_POT_PROVIDER_URL || process.env.YTDLP_USE_COOKIES_WITH_POT === '1';
 const YTDLP_YOUTUBE_PLAYER_CLIENT = String(
-  process.env.YTDLP_YOUTUBE_PLAYER_CLIENT || '',
+  process.env.YTDLP_YOUTUBE_PLAYER_CLIENT || (YTDLP_POT_PROVIDER_URL ? 'mweb' : ''),
 ).trim();
+const LOCAL_YTDLP_PLUGIN_DIR = path.join(PROJECT_ROOT, 'vendor', 'yt-dlp-plugins');
+const YTDLP_PLUGIN_DIR = String(process.env.YTDLP_PLUGIN_DIR || LOCAL_YTDLP_PLUGIN_DIR).trim();
 const FFMPEG_PATH = [
   '/opt/homebrew/bin/ffmpeg',
   '/usr/local/bin/ffmpeg',
@@ -40,6 +44,12 @@ const FFMPEG_ENCODERS = getFFmpegEncoders();
 
 const INFO_TIMEOUT_MS = 90000;
 const DOWNLOAD_TIMEOUT_MS = 30 * 60 * 1000;
+const CREATOR_VIDEO_URL = 'https://www.youtube.com/watch?v=c7XrE_d6pzM';
+const CREATOR_STATS_CACHE_MS = 10 * 60 * 1000;
+let creatorStatsCache = {
+  expiresAt: 0,
+  data: null
+};
 const ALLOWED_AUDIO_BITRATES = [64, 128, 160, 192, 256, 320];
 const DEFAULT_AUDIO_BITRATE = 192;
 const ALLOWED_VIDEO_FPS = [30, 59.94, 60];
@@ -435,6 +445,8 @@ function getProcessErrorDetails(error, fallback) {
     .join('\n');
   const youtubeAuthError = getYoutubeAuthErrorDetails(output || error.message || '');
   if (youtubeAuthError) return youtubeAuthError;
+  const youtubePotError = getYoutubePotErrorDetails(output || error.message || '');
+  if (youtubePotError) return youtubePotError;
 
   const lines = (output || error.message || '')
     .split(/\r?\n/)
@@ -449,7 +461,7 @@ function getProcessErrorDetails(error, fallback) {
 }
 
 function hasConfiguredYtDlpCookies() {
-  return Boolean(YTDLP_COOKIES_PATH);
+  return Boolean(YTDLP_COOKIES_PATH && YTDLP_USE_COOKIES);
 }
 
 function isYoutubeBotCheckError(message) {
@@ -459,11 +471,24 @@ function isYoutubeBotCheckError(message) {
 function getYoutubeAuthErrorDetails(message) {
   if (!isYoutubeBotCheckError(message)) return '';
 
+  if (YTDLP_POT_PROVIDER_URL) {
+    return 'YouTube bot protection is still active. The automatic PO-token provider did not satisfy this request; check that YTDLP_POT_PROVIDER_URL points to a running, publicly reachable bgutil provider.';
+  }
+
   if (hasConfiguredYtDlpCookies()) {
     return 'YouTube rejected the configured cookies. Export fresh youtube.com cookies in Netscape format, update YTDLP_COOKIES_BASE64 or YTDLP_COOKIES, keep YTDLP_USER_AGENT matched to the browser if needed, then redeploy.';
   }
 
   return 'YouTube is blocking this server as a bot. Add fresh youtube.com cookies in Netscape format with YTDLP_COOKIES_BASE64 or YTDLP_COOKIES, then redeploy. If the cookies came from a browser, also set YTDLP_USER_AGENT to that browser user-agent.';
+}
+
+function getYoutubePotErrorDetails(message) {
+  if (!YTDLP_POT_PROVIDER_URL) return '';
+  if (!/bgutil|po token|pot provider|connection refused|failed to fetch/i.test(String(message || ''))) {
+    return '';
+  }
+
+  return 'The automatic YouTube PO-token provider is unavailable. Check YTDLP_POT_PROVIDER_URL and make sure the bgutil provider service is running and reachable from Vercel.';
 }
 
 function normalizeCookiesText(cookies) {
@@ -555,7 +580,7 @@ function getYtDlpCookiesPath() {
 function getYtDlpAuthArgs() {
   const args = [];
 
-  if (YTDLP_COOKIES_PATH) {
+  if (YTDLP_COOKIES_PATH && YTDLP_USE_COOKIES) {
     args.push('--cookies', YTDLP_COOKIES_PATH);
   }
 
@@ -568,6 +593,17 @@ function getYtDlpAuthArgs() {
       '--extractor-args',
       `youtube:player_client=${YTDLP_YOUTUBE_PLAYER_CLIENT}`,
     );
+  }
+
+  if (YTDLP_POT_PROVIDER_URL) {
+    args.push(
+      '--extractor-args',
+      `youtubepot-bgutilhttp:base_url=${YTDLP_POT_PROVIDER_URL}`,
+    );
+  }
+
+  if (fs.existsSync(YTDLP_PLUGIN_DIR)) {
+    args.push('--plugin-dirs', YTDLP_PLUGIN_DIR);
   }
 
   return args;
@@ -1074,6 +1110,46 @@ function createMergedProgressiveFormats(videoFormats, audioFormats) {
 
 router.get('/stats', (req, res) => {
   res.json(readStats());
+});
+
+router.get('/creator-stats', async (req, res) => {
+  if (creatorStatsCache.data && creatorStatsCache.expiresAt > Date.now()) {
+    return res.json(creatorStatsCache.data);
+  }
+
+  try {
+    const { stdout } = await execFileAsync(YTDLP_PATH, [
+      '-j',
+      '--no-warnings',
+      '--no-playlist',
+      '--skip-download',
+      '--ignore-no-formats-error',
+      '--socket-timeout',
+      '20',
+      ...getYtDlpAuthArgs(),
+      CREATOR_VIDEO_URL
+    ], {
+      maxBuffer: 8 * 1024 * 1024,
+      timeout: INFO_TIMEOUT_MS
+    });
+
+    const videoData = JSON.parse(stdout);
+    const data = {
+      views: Number(videoData.view_count) || 0,
+      title: videoData.title || '',
+      updatedAt: new Date().toISOString()
+    };
+
+    creatorStatsCache = {
+      data,
+      expiresAt: Date.now() + CREATOR_STATS_CACHE_MS
+    };
+
+    return res.json(data);
+  } catch (error) {
+    console.warn('Creator stats unavailable:', getProcessErrorDetails(error, 'Unable to fetch creator stats'));
+    return res.status(503).json({ error: 'Creator stats unavailable' });
+  }
 });
 
 router.post('/stats/increment', (req, res) => {

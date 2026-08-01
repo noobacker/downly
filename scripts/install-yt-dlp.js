@@ -27,6 +27,11 @@ const outputPath = path.join(vendorDir, process.platform === 'win32' ? 'yt-dlp.e
 const tempPath = `${outputPath}.download`;
 const downloadUrl = process.env.YTDLP_DOWNLOAD_URL ||
   `https://github.com/yt-dlp/yt-dlp/releases/latest/download/${assetName}`;
+const pluginDir = path.join(vendorDir, 'yt-dlp-plugins');
+const pluginPath = path.join(pluginDir, 'bgutil-ytdlp-pot-provider.zip');
+const pluginTempPath = `${pluginPath}.download`;
+const pluginUrl = process.env.YTDLP_POT_PROVIDER_PLUGIN_URL ||
+  'https://github.com/Brainicism/bgutil-ytdlp-pot-provider/releases/latest/download/bgutil-ytdlp-pot-provider.zip';
 
 function request(url, redirectCount = 0) {
   if (redirectCount > 5) {
@@ -64,7 +69,9 @@ function request(url, redirectCount = 0) {
 }
 
 await mkdir(vendorDir, { recursive: true });
+await mkdir(pluginDir, { recursive: true });
 await rm(tempPath, { force: true });
+await rm(pluginTempPath, { force: true });
 
 console.log(`Downloading yt-dlp from ${downloadUrl}`);
 const response = await request(downloadUrl);
@@ -76,3 +83,9 @@ if (process.platform !== 'win32') {
 }
 
 console.log(`Installed yt-dlp to ${outputPath}`);
+
+console.log(`Downloading yt-dlp PO-token provider plugin from ${pluginUrl}`);
+const pluginResponse = await request(pluginUrl);
+await pipeline(pluginResponse, fs.createWriteStream(pluginTempPath, { mode: 0o600 }));
+await rename(pluginTempPath, pluginPath);
+console.log(`Installed yt-dlp PO-token provider plugin to ${pluginPath}`);

@@ -10,7 +10,10 @@
   ],
   "functions": {
     "api/index.js": {
-      "includeFiles": "vendor/yt-dlp",
+      "includeFiles": [
+        "vendor/yt-dlp",
+        "vendor/yt-dlp-plugins/**"
+      ],
       "maxDuration": 300
     }
   }
