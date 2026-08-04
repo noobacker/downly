@@ -1,0 +1,7 @@
+temp/**
+data/**
+node_modules/**
+.git/**
+.claude/**
+.DS_Store
+*.log
