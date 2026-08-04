@@ -249,27 +249,7 @@ yt-dlp --version
 - Try updating yt-dlp: `pip install --upgrade yt-dlp`
 
 ### YouTube asks to sign in or confirm you are not a bot
-Hosted serverless/datacenter IPs may trigger YouTube bot checks. On Vercel,
-configure yt-dlp with a Netscape-format cookies file:
-
-1. Export `youtube.com` cookies to `cookies.txt`.
-2. Encode the file:
-   ```bash
-   base64 -i cookies.txt | tr -d '\n' | pbcopy
-   ```
-3. In Vercel, add `YTDLP_COOKIES_BASE64` with the copied value.
-4. Redeploy the project.
-
-The cookie file must start with `# HTTP Cookie File` or
-`# Netscape HTTP Cookie File`. The server also accepts raw multiline cookie
-contents in `YTDLP_COOKIES`, or a readable file path in `YTDLP_COOKIES_PATH`,
-but `YTDLP_COOKIES_BASE64` is safest for hosted deployments.
-
-If YouTube still blocks requests, export fresh cookies and add
-`YTDLP_USER_AGENT` in Vercel with the same browser user-agent used when
-exporting cookies.
-
-Do not commit cookies to Git. Treat the cookies file like a password.
+Downly does not request, store, or use YouTube/Google account cookies by default. If YouTube blocks an anonymous request from the hosting provider, the app reports that limitation instead of asking users to upload personal browser data.
 
 ### Download fails or is slow
 - Check your internet connection

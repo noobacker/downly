@@ -21,9 +21,10 @@ const YTDLP_PATH = process.env.YTDLP_PATH ||
   (fs.existsSync(LOCAL_YTDLP_PATH) ? LOCAL_YTDLP_PATH : 'yt-dlp');
 const YTDLP_USER_AGENT = String(process.env.YTDLP_USER_AGENT || '').trim();
 const YTDLP_POT_PROVIDER_URL = String(process.env.YTDLP_POT_PROVIDER_URL || '').trim().replace(/\/$/, '');
-const YTDLP_USE_COOKIES = !YTDLP_POT_PROVIDER_URL || process.env.YTDLP_USE_COOKIES_WITH_POT === '1';
+const YTDLP_ALLOW_COOKIES = process.env.YTDLP_ALLOW_COOKIES === '1';
+const YTDLP_USE_COOKIES = YTDLP_ALLOW_COOKIES && (!YTDLP_POT_PROVIDER_URL || process.env.YTDLP_USE_COOKIES_WITH_POT === '1');
 const YTDLP_YOUTUBE_PLAYER_CLIENT = String(
-  process.env.YTDLP_YOUTUBE_PLAYER_CLIENT || (YTDLP_POT_PROVIDER_URL ? 'mweb' : ''),
+  process.env.YTDLP_YOUTUBE_PLAYER_CLIENT || (YTDLP_POT_PROVIDER_URL ? 'mweb' : 'android_vr,web_embedded,web_safari'),
 ).trim();
 const LOCAL_YTDLP_PLUGIN_DIR = path.join(PROJECT_ROOT, 'vendor', 'yt-dlp-plugins');
 const YTDLP_PLUGIN_DIR = String(process.env.YTDLP_PLUGIN_DIR || LOCAL_YTDLP_PLUGIN_DIR).trim();
@@ -39,7 +40,7 @@ const FFMPEG_PATH = [
   }
 });
 
-const YTDLP_COOKIES_PATH = getYtDlpCookiesPath();
+const YTDLP_COOKIES_PATH = YTDLP_ALLOW_COOKIES ? getYtDlpCookiesPath() : '';
 const FFMPEG_ENCODERS = getFFmpegEncoders();
 
 const INFO_TIMEOUT_MS = 90000;
@@ -479,7 +480,7 @@ function getYoutubeAuthErrorDetails(message) {
     return 'YouTube rejected the configured cookies. Export fresh youtube.com cookies in Netscape format, update YTDLP_COOKIES_BASE64 or YTDLP_COOKIES, keep YTDLP_USER_AGENT matched to the browser if needed, then redeploy.';
   }
 
-  return 'YouTube is blocking this server as a bot. Add fresh youtube.com cookies in Netscape format with YTDLP_COOKIES_BASE64 or YTDLP_COOKIES, then redeploy. If the cookies came from a browser, also set YTDLP_USER_AGENT to that browser user-agent.';
+  return 'YouTube did not allow anonymous extraction from this server. No account cookies or personal browser data are being used. Try a public, embeddable video or retry later.';
 }
 
 function getYoutubePotErrorDetails(message) {
