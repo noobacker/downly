@@ -1,5 +1,6 @@
 import express from 'express';
 import { execFile, execFileSync, spawn } from 'child_process';
+import { Readable } from 'stream';
 import { promisify } from 'util';
 import fs from 'fs';
 import os from 'os';
@@ -55,6 +56,14 @@ const ALLOWED_AUDIO_BITRATES = [64, 128, 160, 192, 256, 320];
 const DEFAULT_AUDIO_BITRATE = 192;
 const ALLOWED_VIDEO_FPS = [30, 59.94, 60];
 const FPS_MATCH_TOLERANCE = 0.08;
+const PIPED_INSTANCES = [
+  'https://pipedapi.kavin.rocks',
+  'https://pipedapi.leptons.xyz',
+  'https://piped-api.privacy.com.de',
+  'https://pipedapi.adminforge.de',
+  'https://api.piped.yt'
+];
+const PIPED_TIMEOUT_MS = 12000;
 const AUDIO_OUTPUT_FORMATS = {
   mp3: {
     id: 'mp3',
@@ -178,6 +187,107 @@ function normalizeYouTubeURL(url) {
   } catch (error) {
     return '';
   }
+}
+
+function getYouTubeVideoId(normalizedUrl) {
+  try {
+    return new URL(normalizedUrl).searchParams.get('v') || '';
+  } catch (error) {
+    return '';
+  }
+}
+
+function encodeRelayStreamUrl(url) {
+  return `relay:${Buffer.from(url).toString('base64url')}`;
+}
+
+function decodeRelayStreamUrl(formatId) {
+  if (!String(formatId || '').startsWith('relay:')) return '';
+
+  try {
+    const url = Buffer.from(String(formatId).slice(6), 'base64url').toString('utf8');
+    const parsed = new URL(url);
+    const allowedHost = PIPED_INSTANCES.some(instance => {
+      const instanceHost = new URL(instance).hostname;
+      return parsed.hostname === instanceHost || parsed.hostname.endsWith(`.${instanceHost}`);
+    });
+    return parsed.protocol === 'https:' && allowedHost ? parsed.href : '';
+  } catch (error) {
+    return '';
+  }
+}
+
+function parsePipedBitrate(stream) {
+  const quality = String(stream.quality || '');
+  const qualityMatch = quality.match(/(\d+(?:\.\d+)?)\s*kbps/i);
+  if (qualityMatch) return Number(qualityMatch[1]);
+
+  const bitrate = Number(stream.bitrate) || 0;
+  return bitrate > 10000 ? bitrate / 1000 : bitrate;
+}
+
+async function fetchPipedStreams(normalizedUrl) {
+  const videoId = getYouTubeVideoId(normalizedUrl);
+  if (!videoId) return null;
+
+  for (const instance of PIPED_INSTANCES) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), PIPED_TIMEOUT_MS);
+
+    try {
+      const response = await fetch(`${instance}/streams/${encodeURIComponent(videoId)}`, {
+        headers: { Accept: 'application/json' },
+        signal: controller.signal
+      });
+      if (!response.ok) continue;
+
+      const data = await response.json();
+      if (data?.title && (Array.isArray(data.audioStreams) || Array.isArray(data.videoStreams))) {
+        return data;
+      }
+    } catch (error) {
+      console.warn(`Piped instance unavailable (${instance}):`, error.message);
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  return null;
+}
+
+function mapPipedStreams(data) {
+  const videoStreams = (data.videoStreams || [])
+    .filter(stream => stream?.url && stream?.mimeType?.startsWith('video/'))
+    .map(stream => ({
+      id: encodeRelayStreamUrl(stream.url),
+      quality: stream.quality || `${stream.height || 0}p`,
+      resolution: stream.width && stream.height ? `${stream.width}x${stream.height}` : 'Unknown',
+      fps: Number(stream.fps) || 'Unknown',
+      codec: String(stream.codec || 'Unknown').split('.')[0],
+      container: stream.format === 'WEBM' ? 'webm' : 'mp4',
+      filesize: Number(stream.contentLength) || null,
+      hdr: 'No',
+      height: Number(stream.height) || 0,
+      videoOnly: Boolean(stream.videoOnly)
+    }));
+  const audioStreams = (data.audioStreams || [])
+    .filter(stream => stream?.url && stream?.mimeType?.startsWith('audio/'))
+    .map(stream => ({
+      id: encodeRelayStreamUrl(stream.url),
+      bitrate: stream.quality || 'Unknown',
+      codec: String(stream.codec || 'Unknown').split('.')[0],
+      container: stream.format === 'WEBM' ? 'webm' : 'm4a',
+      channels: 'Unknown',
+      sampleRate: 'Unknown',
+      filesize: Number(stream.contentLength) || null,
+      abr: parsePipedBitrate(stream)
+    }));
+
+  return {
+    video: videoStreams.filter(stream => stream.videoOnly),
+    audio: audioStreams,
+    progressive: videoStreams.filter(stream => !stream.videoOnly)
+  };
 }
 
 function normalizeMediaURL(url) {
@@ -728,6 +838,37 @@ function streamYtDlpDownload({ normalizedUrl, formatId, filename, extension, res
   });
 }
 
+async function streamRelayDownload({ streamUrl, filename, extension, res }) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(streamUrl, {
+      headers: { 'User-Agent': 'Downly/1.0' },
+      signal: controller.signal
+    });
+
+    if (!response.ok || !response.body) {
+      throw new Error(`Relay returned HTTP ${response.status}`);
+    }
+
+    setDownloadHeaders(res, filename, extension);
+    const contentLength = response.headers.get('content-length');
+    if (contentLength) res.setHeader('Content-Length', contentLength);
+
+    res.once('close', () => controller.abort());
+    Readable.fromWeb(response.body).pipe(res);
+  } catch (error) {
+    if (!res.headersSent) {
+      res.status(400).json({ error: 'Download failed', details: 'The anonymous relay is unavailable. Please retry.' });
+    } else if (!res.destroyed) {
+      res.destroy(error);
+    }
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 function getAudioConversionStreamArgs(format, audioBitrate) {
   const encoder = getAudioOutputEncoder(format);
   const args = [
@@ -1205,6 +1346,31 @@ router.post('/info', async (req, res) => {
       }));
     } catch (error) {
       console.error('yt-dlp error:', error.message);
+      if (platform.id === 'youtube') {
+        const pipedData = await fetchPipedStreams(normalizedUrl);
+        if (pipedData) {
+          const relayFormats = mapPipedStreams(pipedData);
+          return res.json({
+            title: pipedData.title || 'Unknown',
+            thumbnail: pipedData.thumbnailUrl || '',
+            duration: Number(pipedData.duration) || 0,
+            uploader: pipedData.uploader || 'Unknown',
+            views: Number(pipedData.views) || 0,
+            uploadDate: String(pipedData.uploadDate || '').replace(/-/g, ''),
+            description: pipedData.description || '',
+            channelName: pipedData.uploader || 'Unknown',
+            platform: platform.label,
+            capabilities: {
+              mp3: false,
+              merge: false,
+              fps: false,
+              audioConversions: { bitrates: [], bitrateFormats: [], losslessFormats: [] }
+            },
+            formats: relayFormats
+          });
+        }
+      }
+
       const isTimeout = error.killed || error.signal === 'SIGTERM' || error.code === 'ETIMEDOUT';
       return res.status(400).json({
         error: 'Could not retrieve video information',
@@ -1290,6 +1456,25 @@ router.post('/download', async (req, res) => {
         error: 'Unsupported media URL',
         details: `Supported platforms: ${SUPPORTED_PLATFORM_LABELS}`
       });
+    }
+
+    const relayStreamUrl = decodeRelayStreamUrl(formatId);
+    if (relayStreamUrl) {
+      if (outputFormat || mergeOutputFormat || videoFps) {
+        return res.status(400).json({
+          error: 'Conversion unavailable for this anonymous format',
+          details: 'Choose one of the directly available formats.'
+        });
+      }
+
+      const relayExtension = getDownloadExtension({ container });
+      await streamRelayDownload({
+        streamUrl: relayStreamUrl,
+        filename: getResponseFilename(requestedFilename, relayExtension),
+        extension: relayExtension,
+        res
+      });
+      return;
     }
 
     if (!/^[A-Za-z0-9._:@-]+(\+[A-Za-z0-9._:@-]+)?$/.test(formatId)) {
