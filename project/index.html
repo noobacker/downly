@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Downly - Download Videos & Audio</title>
     <link rel="stylesheet" href="style.css?v=20260801-pro-polish" />
+    <link rel="icon" type="image/svg+xml" href="favicon.svg?v=20260801-brand" />
   </head>
   <body>
     <!-- Navigation -->
@@ -91,10 +92,6 @@
       <div class="hero-container">
         <div class="hero-copy">
           <div class="pro-copy">
-            <span class="pro-eyebrow">
-              <span aria-hidden="true">▶</span>
-              Video downloader
-            </span>
             <h1>Download videos and audio without the mess.</h1>
             <p>
               Paste any supported link, choose a clean quality option, and save
@@ -297,7 +294,8 @@
                   sizes="(max-width: 760px) calc(100vw - 2rem), 420px"
                   onerror="
                     this.onerror = null;
-                    this.src = 'https://i.ytimg.com/vi/c7XrE_d6pzM/hqdefault.jpg';
+                    this.src =
+                      'https://i.ytimg.com/vi/c7XrE_d6pzM/hqdefault.jpg';
                   "
                   alt=""
                 />
@@ -307,29 +305,26 @@
                 <span class="creator-video-tag">Most viewed</span>
                 <h3>This is where I live in NYC</h3>
                 <p>Apartment Tour + NJ Diaries</p>
-                <strong>7.4K views</strong>
+                <strong id="creatorViewCount" aria-live="polite">Loading views...</strong>
               </div>
             </article>
 
             <article class="creator-video-card">
               <a
+                id="creatorRecentLink"
                 class="creator-video"
-                href="https://www.youtube.com/watch?v=ZwAJ6Qx5VbM"
+                href="https://www.youtube.com/@whynotharshal/videos"
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="Open the most recent Why Not Harshal upload in a new tab"
               >
                 <img
+                  id="creatorRecentThumb"
                   src="https://i.ytimg.com/vi/ZwAJ6Qx5VbM/maxresdefault.jpg"
-                  srcset="
-                    https://i.ytimg.com/vi/ZwAJ6Qx5VbM/maxresdefault.jpg 1280w,
-                    https://i.ytimg.com/vi/ZwAJ6Qx5VbM/sddefault.jpg      640w,
-                    https://i.ytimg.com/vi/ZwAJ6Qx5VbM/hqdefault.jpg      480w
-                  "
                   sizes="(max-width: 760px) calc(100vw - 2rem), 420px"
                   onerror="
                     this.onerror = null;
-                    this.src = 'https://i.ytimg.com/vi/ZwAJ6Qx5VbM/hqdefault.jpg';
+                    this.src = this.src.replace('maxresdefault', 'hqdefault');
                   "
                   alt=""
                 />
@@ -337,8 +332,7 @@
               </a>
               <div class="creator-video-meta">
                 <span class="creator-video-tag">Most recent</span>
-                <h3>Inside NYU Tandon’s 6 MetroTech Center</h3>
-                <p>Campus Tour Ep. 1</p>
+                <h3 id="creatorRecentTitle">Loading latest upload...</h3>
               </div>
             </article>
           </div>

@@ -44,6 +44,10 @@ const supportPopupCloseBtn = document.getElementById("supportPopupClose");
 const supportPopupLaterBtn = document.getElementById("supportPopupLater");
 const themeToggle = document.getElementById("themeToggle");
 const themeTransition = document.getElementById("themeTransition");
+const creatorViewCountElement = document.getElementById("creatorViewCount");
+const creatorRecentLinkElement = document.getElementById("creatorRecentLink");
+const creatorRecentThumbElement = document.getElementById("creatorRecentThumb");
+const creatorRecentTitleElement = document.getElementById("creatorRecentTitle");
 
 let supportPopupPreviousFocus = null;
 let themeTransitionTimers = [];
@@ -1147,6 +1151,44 @@ async function fetchDownloadStats() {
   }
 }
 
+async function fetchCreatorStats() {
+  if (!creatorViewCountElement && !creatorRecentTitleElement) return;
+
+  try {
+    const response = await fetch(`${API_BASE}/creator-stats`, {
+      headers: { Accept: "application/json" },
+    });
+    if (!response.ok) throw new Error("Creator stats request failed");
+
+    const data = await response.json();
+    const views = Number(data.views) || 0;
+    if (creatorViewCountElement) {
+      creatorViewCountElement.textContent = views
+        ? `${formatViews(views)} views`
+        : "Views unavailable";
+    }
+    renderCreatorLatestVideo(data.latestVideo);
+  } catch (error) {
+    if (creatorViewCountElement) {
+      creatorViewCountElement.textContent = "Views unavailable";
+    }
+  }
+}
+
+function renderCreatorLatestVideo(latestVideo) {
+  if (!latestVideo || !latestVideo.id) return;
+
+  if (creatorRecentLinkElement) {
+    creatorRecentLinkElement.href = latestVideo.url;
+  }
+  if (creatorRecentThumbElement) {
+    creatorRecentThumbElement.src = latestVideo.thumbnail;
+  }
+  if (creatorRecentTitleElement) {
+    creatorRecentTitleElement.textContent = latestVideo.title || "Watch the latest upload";
+  }
+}
+
 function getStatsDownloadType(formatType) {
   return formatType === "audio" ? "audio" : "video";
 }
@@ -1693,5 +1735,6 @@ applyTheme(getStoredTheme());
 migrateLegacyHistory();
 updateSuggestions();
 fetchDownloadStats();
+fetchCreatorStats();
 renderCopyrightYear();
 handleCurrentHash();

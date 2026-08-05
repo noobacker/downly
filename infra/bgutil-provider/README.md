@@ -28,7 +28,7 @@ After redeploying Downly, the server automatically:
 
 The old `YTDLP_COOKIES_BASE64` and `YTDLP_USER_AGENT` variables are no longer required for public videos once this is working. Remove them after verifying the provider, especially if they contain personal account cookies.
 
-When `YTDLP_POT_PROVIDER_URL` is set, Downly ignores the old cookie variables by default so an expired browser session cannot break public downloads. Set `YTDLP_USE_COOKIES_WITH_POT=1` only when you intentionally need authenticated/private content.
+Downly does not use cookies by default. Keep `YTDLP_ALLOW_COOKIES` unset so user account sessions and browser data never enter the server process.
 
 ## Health check
 

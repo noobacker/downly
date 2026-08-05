@@ -4,6 +4,7 @@ node_modules/
 temp/
 data/*.json
 vendor/yt-dlp*
+vendor/bgutil-server/
 
 # Local environment and deployment metadata
 .env

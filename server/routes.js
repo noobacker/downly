@@ -22,13 +22,23 @@ const YTDLP_PATH = process.env.YTDLP_PATH ||
   (fs.existsSync(LOCAL_YTDLP_PATH) ? LOCAL_YTDLP_PATH : 'yt-dlp');
 const YTDLP_USER_AGENT = String(process.env.YTDLP_USER_AGENT || '').trim();
 const YTDLP_POT_PROVIDER_URL = String(process.env.YTDLP_POT_PROVIDER_URL || '').trim().replace(/\/$/, '');
+// Bundled, zero-infra PO-token generator (built by scripts/install-yt-dlp.js). yt-dlp spawns it
+// as a local subprocess per request, so no always-on host is needed for anonymous extraction.
+const YTDLP_BGUTIL_SCRIPT_HOME = path.join(PROJECT_ROOT, 'vendor', 'bgutil-server');
+const YTDLP_BGUTIL_SCRIPT_AVAILABLE = fs.existsSync(path.join(YTDLP_BGUTIL_SCRIPT_HOME, 'build', 'generate_once.js'));
+const YTDLP_POT_MODE = YTDLP_POT_PROVIDER_URL ? 'http' : (YTDLP_BGUTIL_SCRIPT_AVAILABLE ? 'script' : '');
 const YTDLP_ALLOW_COOKIES = process.env.YTDLP_ALLOW_COOKIES === '1';
-const YTDLP_USE_COOKIES = YTDLP_ALLOW_COOKIES && (!YTDLP_POT_PROVIDER_URL || process.env.YTDLP_USE_COOKIES_WITH_POT === '1');
+const YTDLP_USE_COOKIES = YTDLP_ALLOW_COOKIES && (!YTDLP_POT_MODE || process.env.YTDLP_USE_COOKIES_WITH_POT === '1');
 const YTDLP_YOUTUBE_PLAYER_CLIENT = String(
-  process.env.YTDLP_YOUTUBE_PLAYER_CLIENT || (YTDLP_POT_PROVIDER_URL ? 'mweb' : 'android_vr,web_embedded,web_safari'),
+  process.env.YTDLP_YOUTUBE_PLAYER_CLIENT || (YTDLP_POT_MODE ? 'mweb' : 'android_vr,web_embedded,web_safari'),
 ).trim();
 const LOCAL_YTDLP_PLUGIN_DIR = path.join(PROJECT_ROOT, 'vendor', 'yt-dlp-plugins');
 const YTDLP_PLUGIN_DIR = String(process.env.YTDLP_PLUGIN_DIR || LOCAL_YTDLP_PLUGIN_DIR).trim();
+
+if (process.env.VERCEL && !process.env.XDG_CACHE_HOME) {
+  // The PO-token generator writes a small session cache; Vercel's filesystem is read-only outside /tmp.
+  process.env.XDG_CACHE_HOME = path.join(os.tmpdir(), 'downly-cache');
+}
 const FFMPEG_PATH = [
   '/opt/homebrew/bin/ffmpeg',
   '/usr/local/bin/ffmpeg',
@@ -47,6 +57,7 @@ const FFMPEG_ENCODERS = getFFmpegEncoders();
 const INFO_TIMEOUT_MS = 90000;
 const DOWNLOAD_TIMEOUT_MS = 30 * 60 * 1000;
 const CREATOR_VIDEO_URL = 'https://www.youtube.com/watch?v=c7XrE_d6pzM';
+const CREATOR_CHANNEL_VIDEOS_URL = 'https://www.youtube.com/@whynotharshal/videos';
 const CREATOR_STATS_CACHE_MS = 10 * 60 * 1000;
 let creatorStatsCache = {
   expiresAt: 0,
@@ -582,8 +593,12 @@ function isYoutubeBotCheckError(message) {
 function getYoutubeAuthErrorDetails(message) {
   if (!isYoutubeBotCheckError(message)) return '';
 
-  if (YTDLP_POT_PROVIDER_URL) {
+  if (YTDLP_POT_MODE === 'http') {
     return 'YouTube bot protection is still active. The automatic PO-token provider did not satisfy this request; check that YTDLP_POT_PROVIDER_URL points to a running, publicly reachable bgutil provider.';
+  }
+
+  if (YTDLP_POT_MODE === 'script') {
+    return 'YouTube bot protection rejected this request even with the bundled PO-token generator. Try a public, embeddable video or retry later.';
   }
 
   if (hasConfiguredYtDlpCookies()) {
@@ -594,12 +609,14 @@ function getYoutubeAuthErrorDetails(message) {
 }
 
 function getYoutubePotErrorDetails(message) {
-  if (!YTDLP_POT_PROVIDER_URL) return '';
-  if (!/bgutil|po token|pot provider|connection refused|failed to fetch/i.test(String(message || ''))) {
+  if (!YTDLP_POT_MODE) return '';
+  if (!/bgutil|po token|pot provider|connection refused|failed to fetch|generate_once|node.js executable/i.test(String(message || ''))) {
     return '';
   }
 
-  return 'The automatic YouTube PO-token provider is unavailable. Check YTDLP_POT_PROVIDER_URL and make sure the bgutil provider service is running and reachable from Vercel.';
+  return YTDLP_POT_MODE === 'http'
+    ? 'The automatic YouTube PO-token provider is unavailable. Check YTDLP_POT_PROVIDER_URL and make sure the bgutil provider service is running and reachable from Vercel.'
+    : 'The bundled YouTube PO-token generator failed to run. Check the deploy build logs for vendor/bgutil-server and confirm Node.js is available in this runtime.';
 }
 
 function normalizeCookiesText(cookies) {
@@ -706,10 +723,17 @@ function getYtDlpAuthArgs() {
     );
   }
 
-  if (YTDLP_POT_PROVIDER_URL) {
+  if (YTDLP_POT_MODE === 'http') {
     args.push(
       '--extractor-args',
       `youtubepot-bgutilhttp:base_url=${YTDLP_POT_PROVIDER_URL}`,
+    );
+  } else if (YTDLP_POT_MODE === 'script') {
+    args.push(
+      '--extractor-args',
+      `youtubepot-bgutilscript:server_home=${YTDLP_BGUTIL_SCRIPT_HOME}`,
+      '--js-runtimes',
+      `node:${process.execPath}`,
     );
   }
 
@@ -1254,6 +1278,41 @@ router.get('/stats', (req, res) => {
   res.json(readStats());
 });
 
+async function fetchLatestCreatorVideo() {
+  try {
+    const { stdout } = await execFileAsync(YTDLP_PATH, [
+      '-j',
+      '--no-warnings',
+      '--flat-playlist',
+      '--playlist-end',
+      '1',
+      '--socket-timeout',
+      '20',
+      ...getYtDlpAuthArgs(),
+      CREATOR_CHANNEL_VIDEOS_URL
+    ], {
+      maxBuffer: 8 * 1024 * 1024,
+      timeout: INFO_TIMEOUT_MS
+    });
+
+    const line = stdout.split('\n').find(entry => entry.trim());
+    if (!line) return null;
+
+    const entry = JSON.parse(line);
+    if (!entry.id) return null;
+
+    return {
+      id: entry.id,
+      title: entry.title || '',
+      url: `https://www.youtube.com/watch?v=${entry.id}`,
+      thumbnail: `https://i.ytimg.com/vi/${entry.id}/maxresdefault.jpg`
+    };
+  } catch (error) {
+    console.warn('Latest creator video unavailable:', getProcessErrorDetails(error, 'Unable to fetch latest creator video'));
+    return null;
+  }
+}
+
 router.get('/creator-stats', async (req, res) => {
   if (creatorStatsCache.data && creatorStatsCache.expiresAt > Date.now()) {
     return res.json(creatorStatsCache.data);
@@ -1276,9 +1335,12 @@ router.get('/creator-stats', async (req, res) => {
     });
 
     const videoData = JSON.parse(stdout);
+    const latestVideo = await fetchLatestCreatorVideo();
+
     const data = {
       views: Number(videoData.view_count) || 0,
       title: videoData.title || '',
+      latestVideo,
       updatedAt: new Date().toISOString()
     };
 
