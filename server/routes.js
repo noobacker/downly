@@ -28,9 +28,13 @@ const YTDLP_BGUTIL_SCRIPT_HOME = path.join(PROJECT_ROOT, 'vendor', 'bgutil-serve
 const YTDLP_BGUTIL_SCRIPT_AVAILABLE = fs.existsSync(path.join(YTDLP_BGUTIL_SCRIPT_HOME, 'build', 'generate_once.js'));
 const YTDLP_POT_MODE = YTDLP_POT_PROVIDER_URL ? 'http' : (YTDLP_BGUTIL_SCRIPT_AVAILABLE ? 'script' : '');
 const YTDLP_ALLOW_COOKIES = process.env.YTDLP_ALLOW_COOKIES === '1';
-const YTDLP_USE_COOKIES = YTDLP_ALLOW_COOKIES && (!YTDLP_POT_MODE || process.env.YTDLP_USE_COOKIES_WITH_POT === '1');
+// A valid logged-in session is a much stronger trust signal to YouTube than an anonymous
+// PO token, especially from shared/datacenter IPs. Cookies take priority when configured;
+// the bundled PO-token generator stays on underneath as a supplementary layer either way.
+const YTDLP_USE_COOKIES = YTDLP_ALLOW_COOKIES;
 const YTDLP_YOUTUBE_PLAYER_CLIENT = String(
-  process.env.YTDLP_YOUTUBE_PLAYER_CLIENT || (YTDLP_POT_MODE ? 'mweb' : 'android_vr,web_embedded,web_safari'),
+  process.env.YTDLP_YOUTUBE_PLAYER_CLIENT ||
+  (YTDLP_ALLOW_COOKIES ? '' : (YTDLP_POT_MODE ? 'mweb' : 'android_vr,web_embedded,web_safari')),
 ).trim();
 const LOCAL_YTDLP_PLUGIN_DIR = path.join(PROJECT_ROOT, 'vendor', 'yt-dlp-plugins');
 const YTDLP_PLUGIN_DIR = String(process.env.YTDLP_PLUGIN_DIR || LOCAL_YTDLP_PLUGIN_DIR).trim();
@@ -593,16 +597,16 @@ function isYoutubeBotCheckError(message) {
 function getYoutubeAuthErrorDetails(message) {
   if (!isYoutubeBotCheckError(message)) return '';
 
+  if (hasConfiguredYtDlpCookies()) {
+    return 'YouTube rejected the configured cookies. Export fresh youtube.com cookies in Netscape format, update YTDLP_COOKIES_BASE64 or YTDLP_COOKIES, keep YTDLP_USER_AGENT matched to the browser if needed, then redeploy.';
+  }
+
   if (YTDLP_POT_MODE === 'http') {
     return 'YouTube bot protection is still active. The automatic PO-token provider did not satisfy this request; check that YTDLP_POT_PROVIDER_URL points to a running, publicly reachable bgutil provider.';
   }
 
   if (YTDLP_POT_MODE === 'script') {
     return 'YouTube bot protection rejected this request even with the bundled PO-token generator. Try a public, embeddable video or retry later.';
-  }
-
-  if (hasConfiguredYtDlpCookies()) {
-    return 'YouTube rejected the configured cookies. Export fresh youtube.com cookies in Netscape format, update YTDLP_COOKIES_BASE64 or YTDLP_COOKIES, keep YTDLP_USER_AGENT matched to the browser if needed, then redeploy.';
   }
 
   return 'YouTube did not allow anonymous extraction from this server. No account cookies or personal browser data are being used. Try a public, embeddable video or retry later.';
