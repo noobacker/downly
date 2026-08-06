@@ -32,9 +32,12 @@ const YTDLP_ALLOW_COOKIES = process.env.YTDLP_ALLOW_COOKIES === '1';
 // PO token, especially from shared/datacenter IPs. Cookies take priority when configured;
 // the bundled PO-token generator stays on underneath as a supplementary layer either way.
 const YTDLP_USE_COOKIES = YTDLP_ALLOW_COOKIES;
+// mweb (with the PO-token provider) exposes the full DASH format list — separate video-only
+// and audio-only streams up to 4K/60fps. yt-dlp's own default client selection, used whenever
+// this is left unset, only surfaces combined progressive formats capped around 1080p/30fps.
+// Cookies for auth and an explicit player_client for format coverage are independent knobs.
 const YTDLP_YOUTUBE_PLAYER_CLIENT = String(
-  process.env.YTDLP_YOUTUBE_PLAYER_CLIENT ||
-  (YTDLP_ALLOW_COOKIES ? '' : (YTDLP_POT_MODE ? 'mweb' : 'android_vr,web_embedded,web_safari')),
+  process.env.YTDLP_YOUTUBE_PLAYER_CLIENT || (YTDLP_POT_MODE ? 'mweb' : 'android_vr,web_embedded,web_safari'),
 ).trim();
 const LOCAL_YTDLP_PLUGIN_DIR = path.join(PROJECT_ROOT, 'vendor', 'yt-dlp-plugins');
 const YTDLP_PLUGIN_DIR = String(process.env.YTDLP_PLUGIN_DIR || LOCAL_YTDLP_PLUGIN_DIR).trim();
