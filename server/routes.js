@@ -6,6 +6,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import ffmpegStatic from 'ffmpeg-static';
 
 const router = express.Router();
 const execFileAsync = promisify(execFile);
@@ -46,11 +47,15 @@ if (process.env.VERCEL && !process.env.XDG_CACHE_HOME) {
   // The PO-token generator writes a small session cache; Vercel's filesystem is read-only outside /tmp.
   process.env.XDG_CACHE_HOME = path.join(os.tmpdir(), 'downly-cache');
 }
-const FFMPEG_PATH = [
-  '/opt/homebrew/bin/ffmpeg',
-  '/usr/local/bin/ffmpeg',
-  '/usr/bin/ffmpeg'
-].find(candidate => fs.existsSync(candidate)) || null;
+// ffmpeg-static bundles a prebuilt binary per-platform at install time, so this resolves on
+// Vercel's Linux runtime too — the previous Homebrew-only path list only ever worked locally.
+const FFMPEG_PATH = process.env.FFMPEG_PATH ||
+  (ffmpegStatic && fs.existsSync(ffmpegStatic) ? ffmpegStatic : null) ||
+  [
+    '/opt/homebrew/bin/ffmpeg',
+    '/usr/local/bin/ffmpeg',
+    '/usr/bin/ffmpeg'
+  ].find(candidate => fs.existsSync(candidate)) || null;
 
 [TEMP_DIR, DATA_DIR].forEach(dir => {
   if (!fs.existsSync(dir)) {

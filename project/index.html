@@ -496,6 +496,24 @@
       <div class="loading-container">
         <div class="spinner"></div>
         <p class="loading-text">Fetching video information...</p>
+        <a
+          id="loadingPromo"
+          class="loading-promo"
+          href="https://www.youtube.com/watch?v=c7XrE_d6pzM"
+          target="_blank"
+          rel="noopener noreferrer"
+          hidden
+        >
+          <img
+            src="https://i.ytimg.com/vi/c7XrE_d6pzM/hqdefault.jpg"
+            loading="lazy"
+            alt=""
+          />
+          <span class="loading-promo-copy">
+            <strong>The life of a young Indian boy living in the USA 💞</strong>
+            <em>Watch the most viewed vlog</em>
+          </span>
+        </a>
       </div>
     </section>
 
@@ -600,11 +618,67 @@
           ×
         </button>
         <span class="support-popup-kicker">Download starting</span>
+        <div
+          id="supportPopupStatus"
+          class="support-popup-status"
+          role="status"
+          aria-live="polite"
+        >
+          <span class="support-popup-status-spinner" aria-hidden="true"></span>
+          <span id="supportPopupStatusText"
+            >You might see it in your downloads in a few seconds...</span
+          >
+        </div>
         <h2 id="supportPopupTitle">Thanks for using Downly.</h2>
         <p>
           If this helped you, subscribing or supporting the channel would mean a
           lot. No pressure at all.
         </p>
+        <div class="support-popup-promo">
+          <p class="support-popup-promo-label">While you wait, check these out:</p>
+          <div class="support-popup-promo-grid">
+            <a
+              class="support-popup-promo-card"
+              href="https://www.youtube.com/watch?v=c7XrE_d6pzM"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Watch the most viewed Why Not Harshal upload"
+            >
+              <span class="support-popup-promo-thumb">
+                <img
+                  src="https://i.ytimg.com/vi/c7XrE_d6pzM/hqdefault.jpg"
+                  loading="lazy"
+                  alt=""
+                />
+                <span class="support-popup-promo-tag">Most viewed</span>
+              </span>
+              <span class="support-popup-promo-title"
+                >This is where I live in NYC</span
+              >
+            </a>
+            <a
+              id="popupRecentLink"
+              class="support-popup-promo-card"
+              href="https://www.youtube.com/@whynotharshal/videos"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Watch the most recent Why Not Harshal upload"
+            >
+              <span class="support-popup-promo-thumb">
+                <img
+                  id="popupRecentThumb"
+                  src="https://i.ytimg.com/vi/ZwAJ6Qx5VbM/hqdefault.jpg"
+                  loading="lazy"
+                  alt=""
+                />
+                <span class="support-popup-promo-tag">Most recent</span>
+              </span>
+              <span id="popupRecentTitle" class="support-popup-promo-title"
+                >Latest upload</span
+              >
+            </a>
+          </div>
+        </div>
         <div class="support-popup-actions">
           <a
             class="support-popup-btn primary"

@@ -42,12 +42,21 @@ const copyrightYearElement = document.getElementById("copyrightYear");
 const supportPopup = document.getElementById("supportPopup");
 const supportPopupCloseBtn = document.getElementById("supportPopupClose");
 const supportPopupLaterBtn = document.getElementById("supportPopupLater");
+const supportPopupStatusElement = document.getElementById("supportPopupStatus");
+const supportPopupStatusTextElement = document.getElementById(
+  "supportPopupStatusText",
+);
 const themeToggle = document.getElementById("themeToggle");
 const themeTransition = document.getElementById("themeTransition");
 const creatorViewCountElement = document.getElementById("creatorViewCount");
 const creatorRecentLinkElement = document.getElementById("creatorRecentLink");
 const creatorRecentThumbElement = document.getElementById("creatorRecentThumb");
 const creatorRecentTitleElement = document.getElementById("creatorRecentTitle");
+const popupRecentLinkElement = document.getElementById("popupRecentLink");
+const popupRecentThumbElement = document.getElementById("popupRecentThumb");
+const popupRecentTitleElement = document.getElementById("popupRecentTitle");
+const loadingPromoElement = document.getElementById("loadingPromo");
+let loadingPromoTimer = null;
 
 let supportPopupPreviousFocus = null;
 let themeTransitionTimers = [];
@@ -726,11 +735,28 @@ function hideSupportPopup() {
 
   supportPopup.hidden = true;
   document.body.classList.remove("support-popup-open");
+  hideSupportPopupStatus();
 
   if (supportPopupPreviousFocus) {
     supportPopupPreviousFocus.focus();
     supportPopupPreviousFocus = null;
   }
+}
+
+function setSupportPopupStatus(text, state) {
+  if (!supportPopupStatusElement) return;
+
+  supportPopupStatusElement.hidden = false;
+  supportPopupStatusElement.classList.toggle("is-done", state === "done");
+  supportPopupStatusElement.classList.toggle("is-error", state === "error");
+  if (supportPopupStatusTextElement) {
+    supportPopupStatusTextElement.textContent = text;
+  }
+}
+
+function hideSupportPopupStatus() {
+  if (!supportPopupStatusElement) return;
+  supportPopupStatusElement.hidden = true;
 }
 
 // History Management
@@ -1187,6 +1213,29 @@ function renderCreatorLatestVideo(latestVideo) {
   if (creatorRecentTitleElement) {
     creatorRecentTitleElement.textContent = latestVideo.title || "Watch the latest upload";
   }
+  if (popupRecentLinkElement) {
+    popupRecentLinkElement.href = latestVideo.url;
+  }
+  if (popupRecentThumbElement) {
+    popupRecentThumbElement.src = latestVideo.thumbnail;
+  }
+  if (popupRecentTitleElement) {
+    popupRecentTitleElement.textContent = latestVideo.title || "Watch the latest upload";
+  }
+}
+
+function showLoadingPromo() {
+  if (!loadingPromoElement) return;
+
+  window.clearTimeout(loadingPromoTimer);
+  loadingPromoTimer = window.setTimeout(() => {
+    loadingPromoElement.hidden = false;
+  }, 3000);
+}
+
+function hideLoadingPromo() {
+  window.clearTimeout(loadingPromoTimer);
+  if (loadingPromoElement) loadingPromoElement.hidden = true;
 }
 
 function getStatsDownloadType(formatType) {
@@ -1288,10 +1337,59 @@ function submitDownloadForm(fields) {
   document.body.appendChild(form);
   form.submit();
   window.setTimeout(() => form.remove(), 1000);
+
+  return frame;
 }
 
-async function downloadFormat(url, format, filename) {
-  submitDownloadForm({
+// The download frame navigates (fires "load" with a JSON body) only when the
+// server responds with an error instead of a file attachment. A successful
+// attachment response never triggers "load", so we can't confirm success —
+// only surface failures, which is what previously went silent.
+function readDownloadFrameError(frame) {
+  try {
+    const doc = frame.contentDocument;
+    const text = doc?.body?.innerText?.trim();
+    if (!text) return null;
+    const data = JSON.parse(text);
+    return data?.details || data?.error || null;
+  } catch (error) {
+    return null;
+  }
+}
+
+function waitForDownloadOutcome(frame, graceMs) {
+  return new Promise((resolve) => {
+    let settled = false;
+
+    const onLoad = () => {
+      const message = readDownloadFrameError(frame);
+      if (!message) return;
+      if (!settled) {
+        settled = true;
+        window.clearTimeout(graceTimer);
+        frame.removeEventListener("load", onLoad);
+        resolve(message);
+      } else {
+        // Error surfaced after we already assumed success (e.g. a slow
+        // server-side timeout) — still let the user know it failed.
+        showToast(message, "error");
+        frame.removeEventListener("load", onLoad);
+      }
+    };
+
+    frame.addEventListener("load", onLoad);
+
+    const graceTimer = window.setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        resolve(null);
+      }
+    }, graceMs);
+  });
+}
+
+async function downloadFormat(url, format, filename, onTick) {
+  const frame = submitDownloadForm({
     url,
     formatId: format.id,
     filename,
@@ -1302,7 +1400,36 @@ async function downloadFormat(url, format, filename) {
     videoFps: format.videoFps,
   });
 
-  await new Promise((resolve) => window.setTimeout(resolve, 350));
+  // Merged/converted formats are processed server-side before the first
+  // byte ships, so give them longer before assuming success.
+  let graceMs = 6000;
+  if (format.merged) graceMs += 6000;
+  if (format.outputFormat || format.videoFps) graceMs += 8000;
+
+  // Real browser-visible download start lags slightly behind the moment we
+  // stop watching for errors — pad so "done" isn't announced too early.
+  const settleMs = 2500;
+
+  const totalSeconds = Math.round(graceMs / 1000);
+  let remainingSeconds = totalSeconds;
+
+  if (onTick) onTick(remainingSeconds, totalSeconds);
+  const tickTimer = onTick
+    ? window.setInterval(() => {
+        remainingSeconds = Math.max(0, remainingSeconds - 1);
+        onTick(remainingSeconds, totalSeconds);
+      }, 1000)
+    : null;
+
+  try {
+    const errorMessage = await waitForDownloadOutcome(frame, graceMs);
+    if (errorMessage) {
+      throw new Error(errorMessage);
+    }
+    await new Promise((resolve) => window.setTimeout(resolve, settleMs));
+  } finally {
+    if (tickTimer) window.clearInterval(tickTimer);
+  }
 }
 
 // UI Rendering
@@ -1550,6 +1677,7 @@ async function handleGetVideo() {
   getVideoBtn.disabled = true;
   urlInput.disabled = true;
   showSection("loading");
+  showLoadingPromo();
 
   try {
     const data = await fetchVideoInfo(normalizedUrl);
@@ -1568,6 +1696,7 @@ async function handleGetVideo() {
     displayError(error.message || "Failed to fetch video information");
     showToast(error.message || "Error loading video", "error");
   } finally {
+    hideLoadingPromo();
     state.isLoading = false;
     getVideoBtn.disabled = false;
     urlInput.disabled = false;
@@ -1591,16 +1720,30 @@ async function handleDownload(btn, format, type) {
   btn.disabled = true;
   btn.classList.add("loading");
 
+  showSupportPopup();
+
   try {
     await downloadFormat(
       normalizedDownloadUrl,
       format,
       buildDownloadFilename(type, format),
+      (remainingSeconds, totalSeconds) => {
+        if (remainingSeconds > 0) {
+          setSupportPopupStatus(
+            `You might see it in your downloads in about ${remainingSeconds}s...`,
+          );
+        } else {
+          setSupportPopupStatus("Almost there — hang tight a moment.");
+        }
+      },
     );
     incrementDownloadCount(normalizedDownloadUrl, type);
-    showToast("Download is starting... Please wait", "success");
-    showSupportPopup();
+    setSupportPopupStatus(
+      "It should be in your downloads now.",
+      "done",
+    );
   } catch (error) {
+    setSupportPopupStatus(error.message || "Download failed", "error");
     showToast(error.message || "Download failed", "error");
   } finally {
     state.downloadingFormats.delete(formatId);

@@ -10,7 +10,7 @@
   ],
   "functions": {
     "api/index.js": {
-      "includeFiles": "vendor/**",
+      "includeFiles": "{vendor/**,node_modules/ffmpeg-static/**}",
       "maxDuration": 300
     }
   }
